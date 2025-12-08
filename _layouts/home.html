@@ -18,9 +18,9 @@
             </header>
             <div class="content">
                 <p style="text-transform: uppercase;">{{ site.description }}</p>
-                <ul class="actions">
-                    <li><a href="#one" class="button next scrolly">Get Started</a></li>
-                </ul>
+                <!-- <ul class="actions">
+                    <li><a href="#two" class="button next scrolly">Get Started</a></li>
+                </ul> -->
             </div>
         </div>
     </section>
@@ -28,14 +28,10 @@
     <!-- Main -->
     <div id="main">
 
-        <!-- One -->
-        {% include tiles.html %}
-
-        <!-- Two -->
         <section id="two">
             <div class="inner">
                 <header class="major">
-                    <h2>Massa libero</h2>
+                    <h2>The Hidden Cost of Account Sharing</h2>
                 </header>
                 <p>{{ content }}</p>
                 <ul class="actions">
@@ -43,6 +39,11 @@
                 </ul>
             </div>
         </section>
+        
+        {% include tiles.html %}
+
+        
+        
 
     </div>
 

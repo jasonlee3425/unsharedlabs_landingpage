@@ -8,4 +8,12 @@ author: null
 show_tile: false
 ---
 
-Nullam et orci eu lorem consequat tincidunt vivamus et sagittis libero. Mauris aliquet magna magna sed nunc rhoncus pharetra. Pellentesque condimentum sem. In efficitur ligula tate urna. Maecenas laoreet massa vel lacinia pellentesque lorem ipsum dolor. Nullam et orci eu lorem consequat tincidunt. Vivamus et sagittis libero. Mauris aliquet magna magna sed nunc rhoncus amet pharetra et feugiat tempus.
+Subscription platforms lose significant revenue to unnoticed account sharing. Concurrent logins, location hopping, and unauthorized users quietly erodes your margins.
+
+Unshared Labs gives you visibility into these patterns and helps stop revenue loss before it grows. Our lightweight SDK captures the signals you need, detects sharing automatically, and makes it easy to act without disrupting honest customers.
+
+#### How Unshared Labs Works
+- **Drop in our SDK** — Minimal setup, instant data flow.
+- **Process the data** — Data is analyed to reveal usage patterns.
+- **Take action** — Get clear insights and decide how to respond.
+
