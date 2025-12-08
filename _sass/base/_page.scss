@@ -35,4 +35,14 @@
 				}
 			}
 
+
 	}
+
+	html {
+  		filter: grayscale(100%);
+  		/* For older browser compatibility */
+ 		 -webkit-filter: grayscale(100%);
+  		-moz-filter: grayscale(100%);
+  		filter: gray; /* IE6-9 */
+	}
+
