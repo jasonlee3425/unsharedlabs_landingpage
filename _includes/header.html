@@ -2,29 +2,37 @@
 <div id="wrapper">
 
 <!-- Header -->
-<header id="header"{% if page.layout == "landing" %} class="alt style2"{% endif %}{% if page.layout == "home" %} class="alt"{% endif %}>
+<header id="header"{% if page.layout == "landing" or page.layout == "get_started" %} class="alt style2"{% endif %}{% if page.layout == "home" %} class="alt"{% endif %}>
 	<a href="{{ "" | absolute_url }}/" class="logo"><strong>{{ site.title }}</strong> <span>{{ site.subtitle }}</span></a>
+	<!-- Top-right horizontal menu (also shown next to the Menu dropdown) -->
+	<nav class="top-links" style="display:flex; align-items:center; gap:1rem; margin-left:auto;">
+		<ul class="links" style="display:flex; gap:1rem; margin:0; padding:0; list-style:none;">
+			<!-- <li><a href="{{ "/landing.html" | absolute_url }}">Landing</a></li> -->
+			<!-- <li><a href="{{ "/all_posts.html" | absolute_url }}">All posts</a></li> -->
+			<!-- <li><a href="{{ "/elements.html" | absolute_url }}">Elements</a></li> -->
+			<!-- <li><a href="{{ "/generic.html" | absolute_url }}">Generic</a></li> -->
+			<li><a href="{{ "/product.html" | absolute_url }}">Product</a></li>
+			<li><a href="{{ "/pricing.html" | absolute_url }}">Pricing</a></li>
+			<li><a href="{{ "/get_started.html" | absolute_url }}">Get Started</a></li>
+		</ul>
+	</nav>
+	<!-- Menu Dropdown -->
 	<nav>
-		<a href="#menu">Menu</a>
+		<a href="#menu" id="menu-toggle" class="menu-toggle"></a>
 	</nav>
 </header>
+
 
 <!-- Menu -->
 <nav id="menu">
 	<ul class="links">
-        {% for page in site.pages %}
-		    {% if page.layout == "home" %}
-		        <li><a href="{{ "" | absolute_url }}/">{{ page.title }}</a></li>
-	    	{% endif %}
-		{% endfor %}
-		{% for page in site.html_pages %}
-		    {% if page.layout != "home" and page.nav-menu == true %}
-		        <li><a href="{{ page.url | absolute_url }}">{{ page.title }}</a></li>
-		    {% endif %}
-		{% endfor %}
+        <li><a href="{{ "" | absolute_url }}/">Home</a></li>
+		<li><a href="{{ "/product.html" | absolute_url }}">Product</a></li>
+		<li><a href="{{ "/pricing.html" | absolute_url }}">Pricing</a></li>
+		<li><a href="{{ "/get_started.html" | absolute_url }}">Get Started</a></li>
 	</ul>
-	<ul class="actions vertical">
+	<!-- <ul class="actions vertical">
 		<li><a href="#" class="button special fit">Get Started</a></li>
 		<li><a href="#" class="button fit">Log In</a></li>
-	</ul>
+	</ul> -->
 </nav>
