@@ -2,7 +2,7 @@
 layout: get_started
 title: Get Started
 description: Get started with Unshared Labs
-image: assets/images/pic11.jpg
+image: assets/images/unsharedlabs-stock-img4.webp
 nav-menu: true
 ---
 

@@ -8,24 +8,83 @@
 
 <body>
 
-    {% include header.html %} 
-    
-    
-<!-- Main -->
-<div id="main" class="alt">
+    {% include header.html %}
 
-<!-- One -->
-<section id="one">
-	<div class="inner">
-		<header class="major">
-			<h1>{{ page.title }}</h1>
-		</header>
-		{% if page.image %}<span class="image main"><img src="{{ site.baseurl }}/{{ page.image }}" alt="" /></span>{% endif %}
-		{{ content }}
-	</div>
-</section>
 
-</div>
+    <!-- Main -->
+    <div id="main" class="alt">
+
+        <!-- One -->
+        <section id="one">
+            <div class="inner">
+                <header class="major">
+                    <h1>{{ page.title }}</h1>
+                </header>
+                {% if page.image %}<span class="image main"><img src="{{ site.baseurl }}/{{ page.image }}"
+                        alt="" /></span>{% endif %}
+                {{ content }}
+
+                <section id="pricing"
+                    style="max-width:1200px; margin:4rem auto; padding:2rem; font-family:Arial, sans-serif; color:#111;">
+                    <h2 style="text-align:center; margin-bottom:2rem; font-weight:normal;">Pricing</h2>
+                    <p style="text-align:center; margin-bottom:3rem; color:#555; font-weight:normal;">
+                        Choose a plan that fits your subscription platform and start protecting your revenue today.
+                    </p>
+
+                    <div style="display:flex; flex-wrap:wrap; gap:2rem; justify-content:center;">
+                        <div
+                            style="flex:1 1 300px; border:1px solid #ddd; border-radius:12px; padding:2rem; text-align:center; display:flex; flex-direction:column; justify-content:space-between;">
+                            <h3 style="margin-bottom:1rem; font-weight:normal;">Starter</h3>
+                            <p style="font-size:2rem; margin-bottom:1rem;">$299/mo</p>
+                            <p style="color:#555; margin-bottom:2rem;">Up to 5,000 users. Basic detection & reporting.
+                            </p>
+                            <ul style="text-align:left; list-style:none; padding:0; margin-bottom:2rem;">
+                                <li>✔ Lightweight SDK integration</li>
+                                <li>✔ Automatic account sharing detection</li>
+                                <li>✔ Standard reporting dashboards</li>
+                            </ul>
+                            <a href="/get_started.html"
+                                style="text-decoration:none; background:#1a73e8; color:#fff; padding:0.75rem 1.5rem; border-radius:6px;">Get
+                                Started</a>
+                        </div>
+                        <div
+                            style="flex:1 1 300px; border:1px solid #ddd; border-radius:12px; padding:2rem; text-align:center; display:flex; flex-direction:column; justify-content:space-between; background:#f5f5f5;">
+                            <h3 style="margin-bottom:1rem; font-weight:normal;">Growth</h3>
+                            <p style="font-size:2rem; margin-bottom:1rem;">$999/mo</p>
+                            <p style="color:#555; margin-bottom:2rem;">Up to 50,000 users. Advanced reporting & alerts.
+                            </p>
+                            <ul style="text-align:left; list-style:none; padding:0; margin-bottom:2rem;">
+                                <li>✔ All Starter features</li>
+                                <li>✔ Advanced reporting dashboards</li>
+                                <li>✔ Email alerts for suspicious accounts</li>
+                                <li>✔ ML-powered detection engine</li>
+                            </ul>
+                            <a href="/get_started.html"
+                                style="text-decoration:none; background:#1a73e8; color:#fff; padding:0.75rem 1.5rem; border-radius:6px;">Get
+                                Started</a>
+                        </div>
+                        <div
+                            style="flex:1 1 300px; border:1px solid #ddd; border-radius:12px; padding:2rem; text-align:center; display:flex; flex-direction:column; justify-content:space-between;">
+                            <h3 style="margin-bottom:1rem; font-weight:normal;">Enterprise</h3>
+                            <p style="font-size:2rem; margin-bottom:1rem;">Custom</p>
+                            <p style="color:#555; margin-bottom:2rem;">50,000+ users. Full suite + priority support.</p>
+                            <ul style="text-align:left; list-style:none; padding:0; margin-bottom:2rem;">
+                                <li>✔ All Growth features</li>
+                                <li>✔ Priority support & onboarding</li>
+                                <li>✔ Custom integrations & analytics</li>
+                                <li>✔ Real-time monitoring (coming soon)</li>
+                            </ul>
+                            <a href="/get_started.html"
+                                style="text-decoration:none; background:#1a73e8; color:#fff; padding:0.75rem 1.5rem; border-radius:6px;">Contact
+                                Sales</a>
+                        </div>
+
+                    </div>
+                </section>
+            </div>
+        </section>
+
+    </div>
 
     {% include footer.html %}
 
