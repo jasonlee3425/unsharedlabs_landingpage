@@ -1,7 +1,7 @@
 ---
-title: Learn More
-layout: landing
-description: 'Discuss how this system can increase revenues. Possibly discuss each service we offer in more detail. Possibly have charts as well and sample reports'
+title: Discover the Truth and Take Action
+layout: learn_more
+description: 'See how account sharing affects your revenue and learn how Unshared Labs helps you recover it.'
 image: assets/images/pic07.jpg
 nav-menu: true
 ---
@@ -13,15 +13,16 @@ nav-menu: true
 <section id="one">
 	<div class="inner">
 		<header class="major">
-			<h2>Sed amet aliquam</h2>
+			<h2>Calculate Your Revenue Impact</h2>
 		</header>
-		<p>Nullam et orci eu lorem consequat tincidunt vivamus et sagittis magna sed nunc rhoncus condimentum sem. In efficitur ligula tate urna. Maecenas massa vel lacinia pellentesque lorem ipsum dolor. Nullam et orci eu lorem consequat tincidunt. Vivamus et sagittis libero. Nullam et orci eu lorem consequat tincidunt vivamus et sagittis magna sed nunc rhoncus condimentum sem. In efficitur ligula tate urna.</p>
+		<p>Account sharing can silently erode subscription revenue, sometimes by tens of thousands of dollars every month. Use this calculator to see exactly how much revenue could be at risk for your platform and how much you could recover by detecting and addressing unauthorized usage.</p>
+		
 	</div>
 </section>
 
 <section id="revenue-calculator" style="max-width:600px; margin:3rem auto; padding:2rem; border:1px solid #ddd; border-radius:12px; background:#1a1a1a; color:#fff; font-family:Arial, sans-serif; font-weight:normal;">
-  <h2 style="text-align:center; margin-bottom:1rem; font-weight:normal;">Calculate Your Revenue Impact</h2>
-  <p style="text-align:center; margin-bottom:2rem; color:#ccc; font-weight:normal;">Estimate how much revenue could be at risk from account sharing and how much you could recover.</p>
+  <!-- <h2 style="text-align:center; margin-bottom:1rem; font-weight:normal;">Calculate Your Revenue Impact</h2>
+  <p style="text-align:center; margin-bottom:2rem; color:#ccc; font-weight:normal;">Estimate how much revenue could be at risk from account sharing and how much you could recover.</p> -->
 
   <form id="calculator-form" style="display:flex; flex-direction:column; gap:1rem;">
     <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -96,12 +97,12 @@ nav-menu: true
 		<div class="content">
 			<div class="inner">
 				<header class="major">
-					<h3>Orci maecenas</h3>
+					<h3>Solutions</h3>
 				</header>
-				<p>Test.</p>
-				<ul class="actions">
+				<p>Getting started is simple with our lightweight SDK. Our detection engine uses machine learning to flag suspicious account activity automatically, and our reporting tools give clear insights so you can act fast and recover lost revenue.</p>
+				<!-- <ul class="actions">
 					<li><a href="generic.html" class="button">Learn more</a></li>
-				</ul>
+				</ul> -->
 			</div>
 		</div>
 	</section>
@@ -112,11 +113,13 @@ nav-menu: true
 		<div class="content">
 			<div class="inner">
 				<header class="major">
-					<h3>Rhoncus magna</h3>
+					<h3>Unshared Labs SDK and Detection Engine</h3>
 				</header>
-				<p>Test.</p>
+				<p>The SDK is a lightweight, client-side integration that can be added to your platform in minutes. It collects anonymized usage signals—such as session timing, device information, and login patterns—while maintaining user privacy and platform performance. The SDK is designed to be non-intrusive, compatible with most modern subscription platforms, and requires minimal configuration to start generating actionable data.</p>
+				<p>The detection engine processes the data collected by the SDK to identify patterns indicative of account sharing. Leveraging machine learning models trained on aggregate usage behavior, the engine flags suspicious activity such as concurrent logins, location anomalies, or irregular session patterns. The system prioritizes high-confidence events and provides clear, actionable reporting to help teams respond efficiently, without disrupting legitimate users.
+				</p>
 				<ul class="actions">
-					<li><a href="generic.html" class="button">Learn more</a></li>
+					<li><a href="product.html" class="button">See Product</a></li>
 				</ul>
 			</div>
 		</div>
@@ -128,12 +131,29 @@ nav-menu: true
 		<div class="content">
 			<div class="inner">
 				<header class="major">
-					<h3>Sed nunc ligula</h3>
+					<h3>Reporting</h3>
 				</header>
-				<p>Test.</p>
-				<ul class="actions">
+				<p>Unshared Labs provides intuitive, actionable reports that give you a clear view of account usage and sharing activity. Visual dashboards highlight suspicious patterns, trends over time, and potential revenue at risk. Reports are designed to help your team quickly understand the situation, prioritize actions, and measure the impact of interventions without overwhelming you with raw data.</p>
+				<!-- <ul class="actions">
 					<li><a href="generic.html" class="button">Learn more</a></li>
-				</ul>
+				</ul> -->
+			</div>
+		</div>
+	</section>
+	<section>
+		<a href="generic.html" class="image">
+			<img src="{% link assets/images/unsharedlabs-stock-img6.webp %}" alt="" data-position="25% 25%" />
+		</a>
+		<div class="content">
+			<div class="inner">
+				<header class="major">
+					<h3>Coming Soon</h3>
+				</header>
+				<p>We’re expanding Unshared Labs with powerful new tools to help you act on suspicious activity in real time. Soon, you’ll be able to automatically notify accounts showing suspicious behavior and perform real-time checks to catch and prevent abusers before they impact your revenue. Stay tuned for features that make protecting your subscriptions even easier.
+				</p>
+				<!-- <ul class="actions">
+					<li><a href="generic.html" class="button">Learn more</a></li>
+				</ul> -->
 			</div>
 		</div>
 	</section>
