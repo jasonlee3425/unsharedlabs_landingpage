@@ -4,4 +4,147 @@ title: Product
 nav-menu: true
 ---
 
-Product info here
+<section id="products" style="max-width:1200px; margin:4rem auto; padding:2rem; font-family:Arial, sans-serif; color:#111;">
+
+  <h1 style="text-align:center; margin-bottom:1rem; font-weight:normal;">Our Products</h1>
+  <p style="text-align:center; margin-bottom:3rem; color:#fff; font-weight:normal;">
+    Everything you need to detect account sharing, protect your revenue, and gain insights into user behavior.
+  </p>
+
+  <!-- Product Sections -->
+  <div style="display:flex; flex-wrap:wrap; gap:2rem; justify-content:center;">
+    <!-- SDK -->
+    <div style="flex:1 1 300px; border:1px solid #ddd; border-radius:12px; padding:2rem; display:flex; flex-direction:column; justify-content:space-between;">
+      <h3 style="margin-bottom:1rem; font-weight:normal;">Unshared Labs SDK</h3>
+      <p style="color:#555; margin-bottom:1.5rem;">
+        Lightweight, fast, and easy to integrate. Collects anonymized usage signals while maintaining platform performance.
+      </p>
+      <ul style="padding-left:1rem; margin-bottom:2rem; color: #fff">
+        <li>✔ Quick integration in minutes</li>
+        <li>✔ Compatible with most platforms</li>
+        <li>✔ Minimal configuration required</li>
+      </ul>
+      <a href="/get_started.html" style="text-decoration:none; background:#1a73e8; color:#fff; padding:0.75rem 1.5rem; border-radius:6px;">Get Started</a>
+    </div>
+
+    <!-- Detection Engine -->
+    <div style="flex:1 1 300px; border:1px solid #ddd; border-radius:12px; padding:2rem; display:flex; flex-direction:column; justify-content:space-between; background:#f5f5f5;">
+      <h3 style="margin-bottom:1rem; font-weight:normal; color: #000">Detection Engine</h3>
+      <p style="color:#555; margin-bottom:1.5rem;">
+        Our ML-powered engine analyzes usage patterns to flag suspicious logins, location anomalies, and concurrent account activity.
+      </p>
+      <ul style="padding-left:1rem; margin-bottom:2rem;">
+        <li>✔ Automatic detection of suspicious activity</li>
+        <li>✔ Machine learning models for accurate flagging</li>
+        <li>✔ Prioritizes high-confidence events</li>
+      </ul>
+      <a href="/get_started.html" style="text-decoration:none; background:#1a73e8; color:#fff; padding:0.75rem 1.5rem; border-radius:6px;">Learn More</a>
+    </div>
+
+    <!-- Reporting -->
+    <div style="flex:1 1 300px; border:1px solid #ddd; border-radius:12px; padding:2rem; display:flex; flex-direction:column; justify-content:space-between;">
+      <h3 style="margin-bottom:1rem; font-weight:normal;">Reporting</h3>
+      <p style="color:#555; margin-bottom:1.5rem;">
+        Clear, actionable dashboards showing account usage patterns, suspicious behavior, and potential revenue at risk.
+      </p>
+      <ul style="padding-left:1rem; margin-bottom:2rem; color: #fff">
+        <li>✔ Visual dashboards & insights</li>
+        <li>✔ Trend analysis over time</li>
+        <li>✔ Easy prioritization of actions</li>
+      </ul>
+      <a href="/get_started.html" style="text-decoration:none; background:#1a73e8; color:#fff; padding:0.75rem 1.5rem; border-radius:6px;">View Reports</a>
+    </div>
+
+    <!-- Coming Soon -->
+    <div style="flex:1 1 300px; border:1px solid #ddd; border-radius:12px; padding:2rem; display:flex; flex-direction:column; justify-content:space-between; background:#f5f5f5;">
+      <h3 style="margin-bottom:1rem; font-weight:normal; color: #000">Coming Soon</h3>
+      <p style="color:#555; margin-bottom:1.5rem;">
+        New tools for real-time checks of suspicious accounts and automated notifications to stop abusers in their tracks.
+      </p>
+      <ul style="padding-left:1rem; margin-bottom:2rem;">
+        <li>✔ Real-time account checks</li>
+        <li>✔ Automated email notifications</li>
+        <li>✔ Additional anti-sharing tools</li>
+      </ul>
+      <a href="/contact.html" style="text-decoration:none; background:#1a73e8; color:#fff; padding:0.75rem 1.5rem; border-radius:6px;">Stay Updated</a>
+    </div>
+  </div>
+
+  <!-- Developer Guide / SDK Installation -->
+  <section id="developer-guide" style="margin-top:5rem; padding:2rem; border-top:1px solid #ddd;">
+    <h2 style="font-weight:normal; margin-bottom:1rem;">Developer Guide: SDK Installation</h2>
+    <p style="color:#555; margin-bottom:1rem;">
+      A lightweight, drop-in SDK for sending secure session and event data to the Unshared Labs platform. Designed for server environments like Express, Fastify, or Next.js API routes.
+    </p>
+
+    <h3 style="font-weight:normal;">Installation</h3>
+    <pre style="background:#f5f5f5; padding:1rem; border-radius:6px; overflow-x:auto;">
+npm install unshared-clientjs-sdk
+# or
+yarn add unshared-clientjs-sdk
+    </pre>
+
+    <h3 style="font-weight:normal;">Quick Example</h3>
+    <pre style="background:#f5f5f5; padding:1rem; border-radius:6px; overflow-x:auto;">
+import UnsharedLabsClient from "unshared-clientjs-sdk";
+
+const client = new UnsharedLabsClient({
+  apiKey: process.env.UNSHARED_LABS_API_KEY!,
+});
+    </pre>
+
+    <h3 style="font-weight:normal;">API: submitEvent</h3>
+    <p style="color:#555;">
+      Sends events to the Unshared Labs platform.
+    </p>
+    <pre style="background:#f5f5f5; padding:1rem; border-radius:6px; overflow-x:auto;">
+submitEvent(
+  eventType: string,
+  userId: string,
+  ipAddress: string,
+  deviceId: string,
+  sessionHash: string,
+  userAgent: string,
+  clientTimestamp: string,
+  eventDetails?: map&lt;String,any&gt; | null
+): Promise&lt;any&gt;
+    </pre>
+
+    <h3 style="font-weight:normal;">Example: Express Server</h3>
+    <pre style="background:#f5f5f5; padding:1rem; border-radius:6px; overflow-x:auto;">
+import express from "express";
+import UnsharedLabsClient from "unshared-clientjs-sdk";
+
+const app = express();
+app.use(express.json());
+
+const client = new UnsharedLabsClient({
+  apiKey: process.env.UNSHARED_LABS_API_KEY!,
+});
+
+app.post("/login", async (req, res) =&gt; {
+  const { userId } = req.body;
+
+  try {
+    await client.submitEvent(
+      "login",
+      userId,
+      req.ip,
+      req.headers["x-device-id"]?.toString() || "unknown-device",
+      req.headers["x-session-hash"]?.toString() || "unknown-session",
+      req.headers["user-agent"] || "",
+      new Date().toISOString(),
+      new Map(Object.entries({"example": true, "source": 'test-server' }))
+    );
+
+    res.status(200).json({ message: "Login tracked" });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : err });
+  }
+});
+
+app.listen(3000, () =&gt; console.log("Server running on port 3000"));
+    </pre>
+  </section>
+
+</section>
