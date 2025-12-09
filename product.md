@@ -24,7 +24,7 @@ nav-menu: true
         <li>✔ Compatible with most platforms</li>
         <li>✔ Minimal configuration required</li>
       </ul>
-      <a href="/get_started.html" style="text-decoration:none; background:#1a73e8; color:#fff; padding:0.75rem 1.5rem; border-radius:6px;">Get Started</a>
+      <!-- <a href="/get_started.html" style="text-decoration:none; background:#1a73e8; color:#fff; padding:0.75rem 1.5rem; border-radius:6px;">Get Started</a> -->
     </div>
 
     <!-- Detection Engine -->
@@ -38,7 +38,7 @@ nav-menu: true
         <li>✔ Machine learning models for accurate flagging</li>
         <li>✔ Prioritizes high-confidence events</li>
       </ul>
-      <a href="/get_started.html" style="text-decoration:none; background:#1a73e8; color:#fff; padding:0.75rem 1.5rem; border-radius:6px;">Learn More</a>
+      <!-- <a href="/get_started.html" style="text-decoration:none; background:#1a73e8; color:#fff; padding:0.75rem 1.5rem; border-radius:6px;">Learn More</a> -->
     </div>
 
     <!-- Reporting -->
@@ -52,7 +52,7 @@ nav-menu: true
         <li>✔ Trend analysis over time</li>
         <li>✔ Easy prioritization of actions</li>
       </ul>
-      <a href="/get_started.html" style="text-decoration:none; background:#1a73e8; color:#fff; padding:0.75rem 1.5rem; border-radius:6px;">View Reports</a>
+      <!-- <a href="/get_started.html" style="text-decoration:none; background:#1a73e8; color:#fff; padding:0.75rem 1.5rem; border-radius:6px;">View Reports</a> -->
     </div>
 
     <!-- Coming Soon -->
@@ -66,7 +66,7 @@ nav-menu: true
         <li>✔ Automated email notifications</li>
         <li>✔ Additional anti-sharing tools</li>
       </ul>
-      <a href="/contact.html" style="text-decoration:none; background:#1a73e8; color:#fff; padding:0.75rem 1.5rem; border-radius:6px;">Stay Updated</a>
+      <!-- <a href="/contact.html" style="text-decoration:none; background:#1a73e8; color:#fff; padding:0.75rem 1.5rem; border-radius:6px;">Stay Updated</a> -->
     </div>
   </div>
 
