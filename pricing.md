@@ -11,8 +11,6 @@ nav-menu: true
   </p>
 
   <div style="display:flex; flex-wrap:wrap; gap:2rem; justify-content:center;">
-    
-    <!-- Starter Tier -->
     <div style="flex:1 1 300px; border:1px solid #ddd; border-radius:12px; padding:2rem; text-align:center; display:flex; flex-direction:column; justify-content:space-between;">
       <h3 style="margin-bottom:1rem; font-weight:normal;">Starter</h3>
       <p style="font-size:2rem; margin-bottom:1rem;">$299/mo</p>
@@ -24,8 +22,6 @@ nav-menu: true
       </ul>
       <a href="/get_started.html" style="text-decoration:none; background:#1a73e8; color:#fff; padding:0.75rem 1.5rem; border-radius:6px;">Get Started</a>
     </div>
-
-    <!-- Growth Tier -->
     <div style="flex:1 1 300px; border:1px solid #ddd; border-radius:12px; padding:2rem; text-align:center; display:flex; flex-direction:column; justify-content:space-between; background:#f5f5f5;">
       <h3 style="margin-bottom:1rem; font-weight:normal;">Growth</h3>
       <p style="font-size:2rem; margin-bottom:1rem;">$999/mo</p>
@@ -38,8 +34,6 @@ nav-menu: true
       </ul>
       <a href="/get_started.html" style="text-decoration:none; background:#1a73e8; color:#fff; padding:0.75rem 1.5rem; border-radius:6px;">Get Started</a>
     </div>
-
-    <!-- Enterprise Tier -->
     <div style="flex:1 1 300px; border:1px solid #ddd; border-radius:12px; padding:2rem; text-align:center; display:flex; flex-direction:column; justify-content:space-between;">
       <h3 style="margin-bottom:1rem; font-weight:normal;">Enterprise</h3>
       <p style="font-size:2rem; margin-bottom:1rem;">Custom</p>
