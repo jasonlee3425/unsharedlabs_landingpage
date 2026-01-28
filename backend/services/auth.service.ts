@@ -1,0 +1,264 @@
+/**
+ * Authentication service
+ * Handles all authentication logic including Supabase operations
+ */
+
+import { supabase } from '../lib/supabase'
+import type { SignUpRequest, SignInRequest, AuthResponse, UserProfile, Company } from '../types/auth.types'
+
+/**
+ * Check if an email is in the allowed list
+ */
+export async function isEmailAllowed(email: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('Expon3nt_allowed_emails')
+      .select('email')
+      .eq('email', email.toLowerCase().trim())
+      .single()
+    
+    if (error) {
+      console.error('Error checking allowed email:', error)
+      return false
+    }
+    
+    return !!data
+  } catch (err) {
+    console.error('Unexpected error checking allowed email:', err)
+    return false
+  }
+}
+
+/**
+ * Get user profile with role and company information
+ */
+export async function getUserProfile(userId: string): Promise<{ profile: UserProfile | null; company: Company | null }> {
+  try {
+    // Get user profile
+    const { data: profile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .single()
+
+    if (profileError || !profile) {
+      return { profile: null, company: null }
+    }
+
+    // Get company if user has one
+    let company: Company | null = null
+    if (profile.company_id) {
+      const { data: companyData, error: companyError } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('id', profile.company_id)
+        .single()
+
+      if (!companyError && companyData) {
+        company = companyData
+      }
+    }
+
+    return { profile, company }
+  } catch (err) {
+    console.error('Error fetching user profile:', err)
+    return { profile: null, company: null }
+  }
+}
+
+/**
+ * Sign up a new user
+ * By default, new users are created as 'client' role
+ * Super admins must be manually assigned via database
+ */
+export async function signUp({ email, password, companyName }: SignUpRequest): Promise<AuthResponse> {
+  try {
+    // Normalize email
+    const normalizedEmail = email.toLowerCase().trim()
+
+    // Create user in Supabase
+    const { data, error } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password,
+    })
+
+    if (error) {
+      // Log full error details for debugging
+      console.error('Supabase signup error:', {
+        message: error.message,
+        status: error.status,
+        name: error.name,
+        fullError: JSON.stringify(error, null, 2)
+      })
+      
+      // Return more detailed error message
+      let errorMessage = error.message
+      if (error.message.includes('email') && error.message.includes('confirmation')) {
+        errorMessage = 'Email confirmation error'
+      }
+      
+      return { success: false, error: errorMessage }
+    }
+
+    if (!data.user) {
+      return { success: false, error: 'Failed to create user' }
+    }
+
+    // Create user profile with 'client' role by default
+    // If companyName is provided, create or find the company
+    let companyId: string | null = null
+
+    if (companyName) {
+      // Try to find existing company
+      const { data: existingCompany } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('name', companyName.trim())
+        .single()
+
+      if (existingCompany) {
+        companyId = existingCompany.id
+      } else {
+        // Create new company
+        const { data: newCompany, error: companyError } = await supabase
+          .from('companies')
+          .insert({ name: companyName.trim() })
+          .select('id')
+          .single()
+
+        if (!companyError && newCompany) {
+          companyId = newCompany.id
+        }
+      }
+    }
+
+    // Create user profile
+    const { error: profileError } = await supabase
+      .from('user_profiles')
+      .insert({
+        user_id: data.user.id,
+        email: normalizedEmail,
+        role: 'client', // Default to client role
+        company_id: companyId,
+      })
+
+    if (profileError) {
+      console.error('Error creating user profile:', profileError)
+      // User is created but profile failed - this is a problem
+      // In production, you might want to rollback the user creation
+    }
+
+    // Fetch the created profile to return complete user info
+    const { profile, company } = await getUserProfile(data.user.id)
+
+    return {
+      success: true,
+      user: {
+        id: data.user.id,
+        email: data.user.email || normalizedEmail,
+        role: profile?.role || 'client',
+        companyId: profile?.company_id || undefined,
+        companyName: company?.name || undefined,
+      },
+      session: data.session ? {
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      } : undefined,
+    }
+  } catch (err: any) {
+    console.error('Sign up error:', err)
+    return { success: false, error: err.message || 'An unexpected error occurred' }
+  }
+}
+
+/**
+ * Sign in an existing user
+ */
+export async function signIn({ email, password }: SignInRequest): Promise<AuthResponse> {
+  try {
+    const normalizedEmail = email.toLowerCase().trim()
+
+    // Sign in with Supabase
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password,
+    })
+
+    if (error) {
+      // Provide more helpful error messages
+      if (error.message.includes('Invalid login credentials')) {
+        return { 
+          success: false, 
+          error: 'Invalid email or password. If you haven\'t signed up yet, please create an account first.' 
+        }
+      }
+      if (error.message.includes('Email not confirmed')) {
+        return { 
+          success: false, 
+          error: 'Please check your email and click the confirmation link before signing in.' 
+        }
+      }
+      return { success: false, error: error.message }
+    }
+
+    if (!data.session || !data.user) {
+      return { success: false, error: 'Failed to create session. Please try again.' }
+    }
+
+    // Fetch user profile with role and company info
+    const { profile, company } = await getUserProfile(data.user.id)
+
+    return {
+      success: true,
+      user: {
+        id: data.user.id,
+        email: data.user.email || normalizedEmail,
+        role: profile?.role || 'client',
+        companyId: profile?.company_id || undefined,
+        companyName: company?.name || undefined,
+      },
+      session: {
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      },
+    }
+  } catch (err: any) {
+    console.error('Sign in error:', err)
+    return { success: false, error: err.message || 'An unexpected error occurred. Please try again.' }
+  }
+}
+
+/**
+ * Sign out the current user
+ */
+export async function signOut(sessionToken: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Create a client with the user's session token
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return { success: false, error: 'Configuration error' }
+    }
+
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+        },
+      },
+    })
+
+    const { error } = await userClient.auth.signOut()
+    
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    return { success: true }
+  } catch (err: any) {
+    console.error('Sign out error:', err)
+    return { success: false, error: err.message || 'Failed to sign out' }
+  }
+}
