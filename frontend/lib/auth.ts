@@ -29,11 +29,28 @@ export async function signUp(email: string, password: string, companyName?: stri
       body: JSON.stringify({ email, password, companyName }),
     })
 
+    if (!response.ok) {
+      // Try to get error message from response
+      let errorMessage = `Server error: ${response.status} ${response.statusText}`
+      try {
+        const errorData = await response.json()
+        errorMessage = errorData.error || errorMessage
+      } catch {
+        // If response isn't JSON, use status text
+      }
+      console.error('Sign up API error:', errorMessage)
+      return { success: false, error: errorMessage }
+    }
+
     const data = await response.json()
     return data
   } catch (error: any) {
-    console.error('Sign up error:', error)
-    return { success: false, error: 'Failed to connect to server' }
+    console.error('Sign up fetch error:', error)
+    // More specific error message
+    if (error.message) {
+      return { success: false, error: `Network error: ${error.message}` }
+    }
+    return { success: false, error: 'Failed to connect to server. Please check your internet connection.' }
   }
 }
 

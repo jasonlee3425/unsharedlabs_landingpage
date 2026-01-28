@@ -3,31 +3,8 @@
  * Handles all authentication logic including Supabase operations
  */
 
-import { supabase } from '../lib/supabase'
+import { supabase, supabaseAdmin } from '../lib/supabase'
 import type { SignUpRequest, SignInRequest, AuthResponse, UserProfile, Company } from '../types/auth.types'
-
-/**
- * Check if an email is in the allowed list
- */
-export async function isEmailAllowed(email: string): Promise<boolean> {
-  try {
-    const { data, error } = await supabase
-      .from('Expon3nt_allowed_emails')
-      .select('email')
-      .eq('email', email.toLowerCase().trim())
-      .single()
-    
-    if (error) {
-      console.error('Error checking allowed email:', error)
-      return false
-    }
-    
-    return !!data
-  } catch (err) {
-    console.error('Unexpected error checking allowed email:', err)
-    return false
-  }
-}
 
 /**
  * Get user profile with role and company information
@@ -68,49 +45,78 @@ export async function getUserProfile(userId: string): Promise<{ profile: UserPro
 
 /**
  * Sign up a new user
- * By default, new users are created as 'client' role
- * Super admins must be manually assigned via database
+ * Uses regular Supabase Auth signup which sends confirmation email via custom SMTP (Brevo)
+ * User must confirm email before signing in
  */
 export async function signUp({ email, password, companyName }: SignUpRequest): Promise<AuthResponse> {
   try {
+    // Check if Supabase is configured
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+    const hasApiKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
+                      process.env.SUPABASE_ANON_KEY || 
+                      process.env.SUPABASE_API_KEY ||
+                      process.env.SUPABASE_SERVICE_ROLE_KEY
+    
+    if (!supabaseUrl || !hasApiKey) {
+      console.error('⚠️ Supabase environment variables missing!')
+      return { 
+        success: false, 
+        error: 'Server configuration error. Please contact support.' 
+      }
+    }
+
     // Normalize email
     const normalizedEmail = email.toLowerCase().trim()
 
-    // Create user in Supabase
+    // Step 1: Create user in Supabase Auth
+    // This will send a confirmation email via your custom SMTP (Brevo)
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
+      options: {
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/signin`,
+      },
     })
 
     if (error) {
-      // Log full error details for debugging
       console.error('Supabase signup error:', {
         message: error.message,
         status: error.status,
         name: error.name,
-        fullError: JSON.stringify(error, null, 2)
       })
       
-      // Return more detailed error message
-      let errorMessage = error.message
-      if (error.message.includes('email') && error.message.includes('confirmation')) {
-        errorMessage = 'Email confirmation error'
+      // Handle network/fetch errors
+      if (error.message.includes('fetch failed') || error.message.includes('Failed to fetch')) {
+        return { 
+          success: false, 
+          error: 'Unable to connect to authentication service. Please check your internet connection and try again.' 
+        }
       }
       
-      return { success: false, error: errorMessage }
+      // Handle duplicate user error
+      if (error.message.includes('already been registered') || error.message.includes('already exists')) {
+        return { success: false, error: 'An account with this email already exists. Please sign in instead.' }
+      }
+      
+      // Handle email sending errors
+      if (error.message.includes('email') || error.message.includes('confirmation') || error.message.includes('invite')) {
+        return { success: false, error: 'Email confirmation error' }
+      }
+      
+      return { success: false, error: error.message }
     }
 
     if (!data.user) {
       return { success: false, error: 'Failed to create user' }
     }
 
-    // Create user profile with 'client' role by default
-    // If companyName is provided, create or find the company
+    // Step 2: Handle company (if provided)
+    // Use admin client to bypass RLS if needed
+    const adminClient = supabaseAdmin || supabase
     let companyId: string | null = null
-
-    if (companyName) {
+    if (companyName && companyName.trim()) {
       // Try to find existing company
-      const { data: existingCompany } = await supabase
+      const { data: existingCompany } = await adminClient
         .from('companies')
         .select('id')
         .eq('name', companyName.trim())
@@ -120,7 +126,7 @@ export async function signUp({ email, password, companyName }: SignUpRequest): P
         companyId = existingCompany.id
       } else {
         // Create new company
-        const { data: newCompany, error: companyError } = await supabase
+        const { data: newCompany, error: companyError } = await adminClient
           .from('companies')
           .insert({ name: companyName.trim() })
           .select('id')
@@ -132,34 +138,34 @@ export async function signUp({ email, password, companyName }: SignUpRequest): P
       }
     }
 
-    // Create user profile
-    const { error: profileError } = await supabase
+    // Step 3: Create user profile
+    // Use admin client to bypass RLS for profile creation
+    const { error: profileError } = await adminClient
       .from('user_profiles')
       .insert({
         user_id: data.user.id,
         email: normalizedEmail,
-        role: 'client', // Default to client role
+        role: 'client',
         company_id: companyId,
       })
 
     if (profileError) {
       console.error('Error creating user profile:', profileError)
-      // User is created but profile failed - this is a problem
-      // In production, you might want to rollback the user creation
+      // User is created in auth, but profile failed
+      // This is okay - user can still confirm email and we can handle profile later
     }
 
-    // Fetch the created profile to return complete user info
-    const { profile, company } = await getUserProfile(data.user.id)
-
+    // Success - user created, confirmation email sent via Brevo SMTP
+    // User must confirm email before signing in
     return {
       success: true,
       user: {
         id: data.user.id,
         email: data.user.email || normalizedEmail,
-        role: profile?.role || 'client',
-        companyId: profile?.company_id || undefined,
-        companyName: company?.name || undefined,
+        role: 'client',
+        companyId: companyId || undefined,
       },
+      // Session will be null until email is confirmed
       session: data.session ? {
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,

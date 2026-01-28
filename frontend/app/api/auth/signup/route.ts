@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { signUp } from '@backend/services/auth.service'
 
+/**
+ * POST /api/auth/signup
+ * Creates a new user account
+ * - Validates input
+ * - Calls Supabase Auth to create user (sends confirmation email via custom SMTP/Brevo)
+ * - Creates user profile
+ * - User must confirm email before signing in
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -31,23 +39,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Call the auth service
+    // Call Supabase Auth to create user (this sends confirmation email via Brevo)
     const result = await signUp({ email, password, companyName })
 
     if (!result.success) {
-      // Log the error for debugging
       console.error('Signup failed:', {
         email,
         error: result.error,
         timestamp: new Date().toISOString()
       })
       
-      return NextResponse.json(
-        result,
-        { status: 400 }
-      )
+      return NextResponse.json(result, { status: 400 })
     }
 
+    // Success - user created and confirmation email sent
     return NextResponse.json(result, { status: 201 })
   } catch (error: any) {
     console.error('Sign up API error:', error)

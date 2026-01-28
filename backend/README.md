@@ -36,10 +36,10 @@ export async function POST(request: NextRequest) {
 ### Auth Service (`services/auth.service.ts`)
 
 Handles all authentication logic:
-- `signUp({ email, password })` - Create a new user account
+- `signUp({ email, password, companyName? })` - Create a new user account (self-service, no restrictions)
 - `signIn({ email, password })` - Sign in an existing user
 - `signOut(sessionToken)` - Sign out the current user
-- `isEmailAllowed(email)` - Check if email is in allowed list (optional)
+- `getUserProfile(userId)` - Get user profile with role and company information
 
 ## Environment Variables
 
