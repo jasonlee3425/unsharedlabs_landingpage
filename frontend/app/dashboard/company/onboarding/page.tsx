@@ -10,6 +10,8 @@ import {
   ChevronUp,
   Clock,
   Copy,
+  Eye,
+  EyeOff,
   Globe,
   Key,
   Mail,
@@ -35,7 +37,7 @@ interface TechStack {
   description: string
 }
 
-type NodeStepId = 'credentials' | 'install' | 'initialize' | 'integrate' | 'handle'
+type NodeStepId = 'credentials' | 'install' | 'initialize' | 'integrate' | 'handle' | 'verification'
 type NextjsStepId = 'install' | 'integrate'
 
 type OnboardingState = {
@@ -54,6 +56,7 @@ const DEFAULT_STATE: OnboardingState = {
     initialize: false,
     integrate: false,
     handle: false,
+    verification: false,
   },
   nextjsSteps: {
     install: false,
@@ -239,10 +242,22 @@ export default function OnboardingPage() {
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [collapsedSteps, setCollapsedSteps] = useState<Record<string, boolean>>({})
   const [dismissedNotifications, setDismissedNotifications] = useState<Record<string, boolean>>({})
+  const [showClientId, setShowClientId] = useState(false)
+  const [showApiKey, setShowApiKey] = useState(false)
+  const [apiKey, setApiKey] = useState<string | null>(null)
+  const [isGeneratingApiKey, setIsGeneratingApiKey] = useState(false)
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null)
+  
+  // Account verification state
+  const [verificationEmail, setVerificationEmail] = useState('')
+  const [verificationName, setVerificationName] = useState('')
+  const [isCreatingSender, setIsCreatingSender] = useState(false)
+  const [senderCreated, setSenderCreated] = useState(false)
+  const [otp, setOtp] = useState('')
+  const [isValidatingOtp, setIsValidatingOtp] = useState(false)
+  const [verificationError, setVerificationError] = useState<string | null>(null)
 
-  // Placeholder credentials - in production, these should come from the API
   const clientId = user?.companyId || 'your-client-id'
-  const apiKey = 'your-api-key-here'
 
   const selectedTechStacks = state.selectedTechStacks
   const selectedTechObjects = useMemo(
@@ -296,13 +311,32 @@ export default function OnboardingPage() {
     [companyId]
   )
 
-  // Scroll to first incomplete step when nodejs or nextjs screen loads
+  // Track if we've already scrolled on this screen to prevent re-scrolling when typing
+  const [hasScrolledToIncomplete, setHasScrolledToIncomplete] = useState(false)
+  const [lastScreen, setLastScreen] = useState<Screen | null>(null)
+
+  // Scroll to first incomplete step when nodejs or nextjs screen loads (only once per screen)
   useEffect(() => {
     if ((screen !== 'nodejs' && screen !== 'nextjs') || isLoadingOnboarding) return
 
+    // Reset scroll flag when screen changes
+    if (lastScreen !== screen) {
+      setHasScrolledToIncomplete(false)
+      setLastScreen(screen)
+    }
+
+    // Only scroll if we haven't already scrolled on this screen, and no input is focused
+    if (hasScrolledToIncomplete) return
+    
+    // Check if any input is currently focused - if so, don't scroll
+    const activeElement = document.activeElement
+    if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+      return
+    }
+
     let firstIncomplete: string | undefined
     if (screen === 'nodejs') {
-      const stepOrder: NodeStepId[] = ['credentials', 'install', 'initialize', 'integrate', 'handle']
+      const stepOrder: NodeStepId[] = ['credentials', 'install', 'initialize', 'integrate', 'handle', 'verification']
       firstIncomplete = stepOrder.find((stepId) => !state.nodejsSteps[stepId])
     } else if (screen === 'nextjs') {
       const stepOrder: NextjsStepId[] = ['install', 'integrate']
@@ -312,6 +346,12 @@ export default function OnboardingPage() {
     if (firstIncomplete) {
       // Delay to ensure DOM is ready after state loads
       const timeoutId = setTimeout(() => {
+        // Double-check no input is focused before scrolling
+        const activeElement = document.activeElement
+        if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+          return
+        }
+        
         const element = document.getElementById(`step-${firstIncomplete}`)
         if (element) {
           element.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -319,11 +359,15 @@ export default function OnboardingPage() {
           setTimeout(() => {
             window.scrollBy({ top: -20, behavior: 'smooth' })
           }, 300)
+          setHasScrolledToIncomplete(true)
         }
       }, 200)
       return () => clearTimeout(timeoutId)
+    } else {
+      // All steps complete, mark as scrolled
+      setHasScrolledToIncomplete(true)
     }
-  }, [screen, isLoadingOnboarding, state.nodejsSteps, state.nextjsSteps])
+  }, [screen, isLoadingOnboarding, state.nodejsSteps, state.nextjsSteps, hasScrolledToIncomplete, lastScreen])
 
   useEffect(() => {
     const load = async () => {
@@ -377,6 +421,125 @@ export default function OnboardingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen])
 
+  // Fetch API key when component loads
+  useEffect(() => {
+    const fetchApiKey = async () => {
+      if (!companyId) return
+      const token = getSessionToken()
+      if (!token) return
+
+      try {
+        const res = await fetch(`/api/companies/${companyId}/api-key`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        const json = await res.json()
+        if (json?.success && json?.data?.apiKey) {
+          setApiKey(json.data.apiKey)
+        }
+      } catch (e) {
+        console.error('Failed to fetch API key:', e)
+      }
+    }
+
+    fetchApiKey()
+  }, [companyId])
+
+  // Generate API key function
+  const handleGenerateApiKey = async () => {
+    if (!companyId) return
+    const token = getSessionToken()
+    if (!token) return
+
+    setIsGeneratingApiKey(true)
+    setApiKeyError(null)
+
+    try {
+      const res = await fetch(`/api/companies/${companyId}/api-key`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const json = await res.json()
+      if (json?.success && json?.data?.apiKey) {
+        setApiKey(json.data.apiKey)
+      } else {
+        setApiKeyError(json?.error || 'Failed to generate API key')
+      }
+    } catch (e: any) {
+      console.error('Failed to generate API key:', e)
+      setApiKeyError(e.message || 'Failed to generate API key')
+    } finally {
+      setIsGeneratingApiKey(false)
+    }
+  }
+
+  // Create sender for account verification
+  const handleCreateSender = async () => {
+    if (!companyId || !verificationEmail || !verificationName) return
+    const token = getSessionToken()
+    if (!token) return
+
+    setIsCreatingSender(true)
+    setVerificationError(null)
+
+    try {
+      const res = await fetch(`/api/companies/${companyId}/verification`, {
+        method: 'POST',
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: verificationEmail,
+          name: verificationName
+        })
+      })
+      const json = await res.json()
+      if (json?.success) {
+        setSenderCreated(true)
+      } else {
+        setVerificationError(json?.error || 'Failed to create sender')
+      }
+    } catch (e: any) {
+      console.error('Failed to create sender:', e)
+      setVerificationError(e.message || 'Failed to create sender')
+    } finally {
+      setIsCreatingSender(false)
+    }
+  }
+
+  // Validate OTP
+  const handleValidateOtp = async () => {
+    if (!companyId || !otp) return
+    const token = getSessionToken()
+    if (!token) return
+
+    setIsValidatingOtp(true)
+    setVerificationError(null)
+
+    try {
+      const res = await fetch(`/api/companies/${companyId}/verification`, {
+        method: 'PUT',
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ otp })
+      })
+      const json = await res.json()
+      if (json?.success) {
+        // Mark verification step as complete
+        toggleNodeStep('verification')
+      } else {
+        setVerificationError(json?.error || 'Invalid OTP')
+      }
+    } catch (e: any) {
+      console.error('Failed to validate OTP:', e)
+      setVerificationError(e.message || 'Failed to validate OTP')
+    } finally {
+      setIsValidatingOtp(false)
+    }
+  }
+
   const toggleTechStack = (techId: string) => {
     const nextSelected = selectedTechStacks.includes(techId)
       ? selectedTechStacks.filter((id) => id !== techId)
@@ -404,16 +567,20 @@ export default function OnboardingPage() {
     // Only allow marking as complete, not uncompleting
     if (state.nodejsSteps[stepId]) return
     
-    // Enforce sequential completion
-    const stepOrder: NodeStepId[] = ['credentials', 'install', 'initialize', 'integrate', 'handle']
-    const currentIndex = stepOrder.indexOf(stepId)
-    
-    // Check if previous step is completed (or if this is the first step)
-    if (currentIndex > 0) {
-      const previousStep = stepOrder[currentIndex - 1]
-      if (!state.nodejsSteps[previousStep]) {
-        // Previous step not completed, don't allow this step
-        return
+    // Enforce sequential completion (verification is optional and can be completed at any time)
+    if (stepId === 'verification') {
+      // Verification step can be completed at any time
+    } else {
+      const stepOrder: NodeStepId[] = ['credentials', 'install', 'initialize', 'integrate', 'handle']
+      const currentIndex = stepOrder.indexOf(stepId)
+      
+      // Check if previous step is completed (or if this is the first step)
+      if (currentIndex > 0) {
+        const previousStep = stepOrder[currentIndex - 1]
+        if (!state.nodejsSteps[previousStep]) {
+          // Previous step not completed, don't allow this step
+          return
+        }
       }
     }
     
@@ -578,9 +745,11 @@ export default function OnboardingPage() {
       if (isCompleted) return false // Already completed
       
       if (stackType === 'nodejs') {
-        const stepOrder: NodeStepId[] = ['credentials', 'install', 'initialize', 'integrate', 'handle']
+        const stepOrder: NodeStepId[] = ['credentials', 'install', 'initialize', 'integrate', 'handle', 'verification']
         const currentIndex = stepOrder.indexOf(stepId as NodeStepId)
         if (currentIndex === 0) return true // First step
+        // Verification step is optional, so it can be completed at any time
+        if (stepId === 'verification') return true
         const previousStep = stepOrder[currentIndex - 1]
         return Boolean(state.nodejsSteps[previousStep])
       } else {
@@ -1202,35 +1371,67 @@ export async function POST(req: Request) {
                   Onboarding
                 </h1>
                 <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                  Node.js Integration Guide
+                  {screen === 'nodejs' && 'Node.js Integration Guide'}
+                  {screen === 'nextjs' && 'Next.js Integration Guide'}
                 </p>
               </div>
             </div>
               <div className="flex items-center gap-2">
-                {nodeSelected && screen === 'nodejs' && (
-                  <span className="px-4 py-2 text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                    Node.js Guide
-                  </span>
-                )}
-                {nextjsSelected && screen === 'nodejs' && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setScreen('nextjs')
-                      window.scrollTo({ top: 0, behavior: 'smooth' })
-                    }}
-                    className="px-4 py-2 rounded-lg border-2 text-sm transition-all"
-                    style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-strong)', color: 'var(--text-primary)' }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'var(--card-bg)'
-                    }}
-                  >
-                    Next.js Guide
-                  </button>
-                )}
+                {/* Navigation Tabs */}
+                <div className="flex items-center gap-2 border-2 rounded-lg p-1" style={{ borderColor: 'var(--border-strong)' }}>
+                  {nodeSelected && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScreen('nodejs')
+                        window.scrollTo({ top: 0, behavior: 'smooth' })
+                      }}
+                      className="px-3 py-1.5 rounded text-sm font-medium transition-all"
+                      style={{
+                        backgroundColor: screen === 'nodejs' ? 'var(--active-bg)' : 'transparent',
+                        color: screen === 'nodejs' ? 'var(--text-primary)' : 'var(--text-tertiary)'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (screen !== 'nodejs') {
+                          e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (screen !== 'nodejs') {
+                          e.currentTarget.style.backgroundColor = 'transparent'
+                        }
+                      }}
+                    >
+                      Node.js
+                    </button>
+                  )}
+                  {nextjsSelected && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScreen('nextjs')
+                        window.scrollTo({ top: 0, behavior: 'smooth' })
+                      }}
+                      className="px-3 py-1.5 rounded text-sm font-medium transition-all"
+                      style={{
+                        backgroundColor: screen === 'nextjs' ? 'var(--active-bg)' : 'transparent',
+                        color: screen === 'nextjs' ? 'var(--text-primary)' : 'var(--text-tertiary)'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (screen !== 'nextjs') {
+                          e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (screen !== 'nextjs') {
+                          e.currentTarget.style.backgroundColor = 'transparent'
+                        }
+                      }}
+                    >
+                      Next.js
+                    </button>
+                  )}
+                </div>
                 {selectedUnsupported.length > 0 && (
                   <button
                     type="button"
@@ -1360,10 +1561,29 @@ export async function POST(req: Request) {
                       Client ID
                     </span>
                   </div>
-                  <CopyButton text={clientId} field="clientId" label="Client ID" />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowClientId(!showClientId)}
+                      className="p-1 rounded transition-all"
+                      style={{ color: 'var(--text-tertiary)' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                        e.currentTarget.style.color = 'var(--text-primary)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent'
+                        e.currentTarget.style.color = 'var(--text-tertiary)'
+                      }}
+                      title={showClientId ? 'Hide Client ID' : 'Show Client ID'}
+                    >
+                      {showClientId ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                    <CopyButton text={clientId} field="clientId" label="Client ID" />
+                  </div>
                 </div>
                 <div className="p-3 rounded font-mono text-sm break-all" style={{ backgroundColor: 'var(--card-bg)', color: 'var(--text-primary)' }}>
-                  {clientId}
+                  {showClientId ? clientId : '•'.repeat(clientId.length)}
                 </div>
               </div>
 
@@ -1375,11 +1595,69 @@ export async function POST(req: Request) {
                       API Key
                     </span>
                   </div>
-                  <CopyButton text={apiKey} field="apiKey" label="API Key" />
+                  <div className="flex items-center gap-2">
+                    {apiKey && (
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="p-1 rounded transition-all"
+                        style={{ color: 'var(--text-tertiary)' }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                          e.currentTarget.style.color = 'var(--text-primary)'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent'
+                          e.currentTarget.style.color = 'var(--text-tertiary)'
+                        }}
+                        title={showApiKey ? 'Hide API Key' : 'Show API Key'}
+                      >
+                        {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    )}
+                    {apiKey && <CopyButton text={apiKey} field="apiKey" label="API Key" />}
+                  </div>
                 </div>
-                <div className="p-3 rounded font-mono text-sm break-all" style={{ backgroundColor: 'var(--card-bg)', color: 'var(--text-primary)' }}>
-                  {apiKey}
-                </div>
+                {apiKey ? (
+                  <div className="p-3 rounded font-mono text-sm break-all" style={{ backgroundColor: 'var(--card-bg)', color: 'var(--text-primary)' }}>
+                    {showApiKey ? apiKey : '•'.repeat(Math.min(apiKey.length, 50))}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                      No API key generated yet. Click the button below to generate one.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleGenerateApiKey}
+                      disabled={isGeneratingApiKey}
+                      className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+                      style={{
+                        backgroundColor: isGeneratingApiKey ? 'var(--hover-bg)' : '#10b981',
+                        color: isGeneratingApiKey ? 'var(--text-tertiary)' : 'white',
+                        cursor: isGeneratingApiKey ? 'not-allowed' : 'pointer',
+                        opacity: isGeneratingApiKey ? 0.5 : 1,
+                      }}
+                    >
+                      {isGeneratingApiKey ? (
+                        <>
+                          <Clock className="w-4 h-4 animate-spin" />
+                          <span>Generating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Key className="w-4 h-4" />
+                          <span>Generate API Key</span>
+                        </>
+                      )}
+                    </button>
+                    {apiKeyError && (
+                      <p className="text-sm" style={{ color: '#ef4444' }}>
+                        {apiKeyError}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-start gap-2 p-3 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
@@ -1407,14 +1685,38 @@ export async function POST(req: Request) {
 
           <StepCard stepId="initialize" stepNumber={3} title="Initialize the SDK" description="Set up the SDK in your backend code">
             <div className="space-y-4">
-              <div className="p-4 rounded-lg font-mono text-sm" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border-color)' }}>
+              <div className="p-4 rounded-lg font-mono text-sm overflow-hidden" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border-color)' }}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                     Environment Variables
                   </span>
-                  <CopyButton text={`UNSHARED_LABS_CLIENT_ID=${clientId}\nUNSHARED_LABS_API_KEY=${apiKey}`} field="env" label=".env" />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowClientId(!showClientId)
+                        setShowApiKey(!showApiKey)
+                      }}
+                      className="p-1 rounded transition-all"
+                      style={{ color: 'var(--text-tertiary)' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                        e.currentTarget.style.color = 'var(--text-primary)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent'
+                        e.currentTarget.style.color = 'var(--text-tertiary)'
+                      }}
+                      title={showClientId && showApiKey ? 'Hide credentials' : 'Show credentials'}
+                    >
+                      {(showClientId && showApiKey) ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                    <CopyButton text={`UNSHARED_LABS_CLIENT_ID=${clientId}\nUNSHARED_LABS_API_KEY=${apiKey || 'your-api-key-here'}`} field="env" label=".env" />
+                  </div>
                 </div>
-                <pre style={{ color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap' }}>{`UNSHARED_LABS_CLIENT_ID=${clientId}\nUNSHARED_LABS_API_KEY=${apiKey}`}</pre>
+                <pre className="break-all" style={{ color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', overflowWrap: 'anywhere', maxWidth: '100%' }}>
+                  {`UNSHARED_LABS_CLIENT_ID=${showClientId ? clientId : '•'.repeat(clientId.length)}\nUNSHARED_LABS_API_KEY=${showApiKey ? (apiKey || 'your-api-key-here') : '•'.repeat(Math.min((apiKey || 'your-api-key-here').length, 50))}`}
+                </pre>
               </div>
 
               <div className="p-4 rounded-lg font-mono text-sm" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border-color)' }}>
@@ -1453,7 +1755,7 @@ export async function POST(req: Request) {
 
           <StepCard stepId="handle" stepNumber={5} title="Handle Flagged Users" description="Trigger verification when a user is flagged">
             <div className="space-y-4">
-              <div className="p-4 rounded-lg font-mono text-sm" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border-color)' }}>
+              <div className="p-4 rounded-lg font-mono text-sm overflow-hidden" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border-color)' }}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                     Example
@@ -1464,7 +1766,7 @@ export async function POST(req: Request) {
                     label="Code"
                   />
                 </div>
-                <pre style={{ color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap' }}>{`if (result.analysis.is_user_flagged) {\n  await unshared_labs_client.triggerEmailVerification(\n    emailAddress,\n    deviceId\n  );\n}`}</pre>
+                <pre className="break-all overflow-x-auto" style={{ color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', overflowWrap: 'anywhere', maxWidth: '100%' }}>{`if (result.analysis.is_user_flagged) {\n  await unshared_labs_client.triggerEmailVerification(\n    emailAddress,\n    deviceId\n  );\n}`}</pre>
               </div>
 
               <p className="text-sm flex items-center gap-2" style={{ color: 'var(--text-tertiary)' }}>
@@ -1475,6 +1777,43 @@ export async function POST(req: Request) {
                 </a>
                 .
               </p>
+            </div>
+          </StepCard>
+
+          <StepCard stepId="verification" stepNumber={6} title="Set up Account Verification (Optional)" description="Set up account verification to send verification emails from your own domain">
+            <div className="space-y-4">
+              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                Set up account verification to send verification emails from your own domain. This step is optional.
+              </p>
+              
+              <button
+                type="button"
+                onClick={() => {
+                  router.push('/dashboard/company/prevention')
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+                style={{
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#059669'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#10b981'
+                }}
+              >
+                <Shield className="w-4 h-4" />
+                <span>Go to Prevention Settings</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+
+              <div className="flex items-start gap-2 p-3 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
+                <Shield className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#3b82f6' }} />
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>Note:</strong> This step is optional. You can skip it and complete it later if needed.
+                </p>
+              </div>
             </div>
           </StepCard>
         </div>

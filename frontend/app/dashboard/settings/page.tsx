@@ -168,6 +168,12 @@ export default function SettingsPage() {
             >
               Reset your onboarding progress. This will mark all steps as incomplete and prevent dashboard data from displaying until onboarding is complete again.
             </p>
+            <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+              <p className="text-xs flex items-start gap-2" style={{ color: 'var(--text-primary)' }}>
+                <span className="font-semibold">Note:</span>
+                <span>Your API key will <strong>not</strong> be reset. It will remain unchanged in the database and can still be used in your applications.</span>
+              </p>
+            </div>
             
             <button
               onClick={() => setShowResetModal(true)}
@@ -217,6 +223,12 @@ export default function SettingsPage() {
                 <p className="text-sm mb-4" style={{ color: 'var(--text-tertiary)' }}>
                   This will mark all onboarding steps as incomplete. <strong>Your dashboard will not display data until onboarding is complete again.</strong> Are you sure you want to continue?
                 </p>
+                <div className="p-3 rounded-lg mb-4" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                  <p className="text-xs flex items-start gap-2" style={{ color: 'var(--text-primary)' }}>
+                    <span className="font-semibold">Important:</span>
+                    <span>Your API key will <strong>not</strong> be reset or deleted. It will remain unchanged and can continue to be used in your applications.</span>
+                  </p>
+                </div>
               </div>
             </div>
             

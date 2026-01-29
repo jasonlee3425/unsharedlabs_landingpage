@@ -610,12 +610,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const getCurrentView = () => {
     if (pathname === '/dashboard/settings') return 'settings'
     if (pathname === '/dashboard/company/onboarding') return 'onboarding'
+    if (pathname === '/dashboard/company/prevention') return 'prevention'
     if (pathname === '/dashboard/company') return 'company'
     if (pathname === '/docs' || pathname?.includes('/docs')) return 'documentation'
     return 'dashboard'
   }
   
-  const [currentView, setCurrentView] = useState<'dashboard' | 'documentation' | 'settings' | 'company' | 'onboarding'>(getCurrentView())
+  const [currentView, setCurrentView] = useState<'dashboard' | 'documentation' | 'settings' | 'company' | 'onboarding' | 'prevention'>(getCurrentView())
   
   // Update current view when pathname changes
   useEffect(() => {
@@ -657,6 +658,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       view: 'onboarding' as const,
       href: '/dashboard/company/onboarding',
       icon: Rocket,
+    },
+    {
+      name: 'Prevention',
+      view: 'prevention' as const,
+      href: '/dashboard/company/prevention',
+      icon: Shield,
     },
     {
       name: 'Documentation',
@@ -822,8 +829,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 onClick={() => {
                   setCurrentView(item.view)
                   setMobileMenuOpen(false)
-                  // Navigate for dashboard, company, and onboarding, show content in panel for documentation
-                  if (item.view === 'dashboard' || item.view === 'company' || item.view === 'onboarding') {
+                  // Navigate for dashboard, company, onboarding, and prevention, show content in panel for documentation
+                  if (item.view === 'dashboard' || item.view === 'company' || item.view === 'onboarding' || item.view === 'prevention') {
                     router.push(item.href)
                   } else if (item.view === 'documentation') {
                     // Ensure documentation is set as active
@@ -931,6 +938,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               {currentView === 'documentation' ? 'Documentation' 
                 : currentView === 'settings' ? 'Settings' 
                 : currentView === 'onboarding' ? 'Onboarding'
+                : currentView === 'prevention' ? 'Prevention'
                 : currentView === 'company' ? 'Company'
                 : 'Dashboard'}
             </h1>
