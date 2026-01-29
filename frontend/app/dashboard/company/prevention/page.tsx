@@ -20,6 +20,15 @@ interface VerificationSettings {
   sender_id: number | null
   is_verified: boolean
   prevention_steps?: PreventionSteps
+  domain?: string | null
+  domain_brevo_id?: string | null
+  domain_dns_records?: {
+    dkim_txt?: any
+    brevo_code?: any
+    dkim1_cname?: any
+    dkim2_cname?: any
+    dmarc_txt?: any
+  } | null
   created_at: string
   updated_at: string
 }
@@ -37,6 +46,7 @@ export default function PreventionPage() {
   const [otp, setOtp] = useState('')
   const [isValidatingOtp, setIsValidatingOtp] = useState(false)
   const [verificationError, setVerificationError] = useState<string | null>(null)
+  const [domainError, setDomainError] = useState<string | null>(null)
   const [showUpdateForm, setShowUpdateForm] = useState(false)
   const [authSuccess, setAuthSuccess] = useState(false)
   const [dismissedSuccessBanner, setDismissedSuccessBanner] = useState(false)
@@ -48,6 +58,16 @@ export default function PreventionPage() {
   const [updateSenderCreated, setUpdateSenderCreated] = useState(false)
   const [updateOtp, setUpdateOtp] = useState('')
   const [isValidatingUpdateOtp, setIsValidatingUpdateOtp] = useState(false)
+  const [domain, setDomain] = useState('')
+  const [isSettingUpDomain, setIsSettingUpDomain] = useState(false)
+  const [domainDnsRecords, setDomainDnsRecords] = useState<any>(null)
+  const [isValidatingDomain, setIsValidatingDomain] = useState(false)
+  const [isAuthenticatingDomain, setIsAuthenticatingDomain] = useState(false)
+  const [domainValidationResult, setDomainValidationResult] = useState<{
+    verified: boolean
+    authenticated: boolean
+    dns_records: any
+  } | null>(null)
 
   // Fetch verification settings on load
   useEffect(() => {
@@ -86,6 +106,14 @@ export default function PreventionPage() {
           // Don't set senderCreated to true here - let the UI logic handle it
           setVerificationEmail(json.data.sender_email || '')
           setVerificationName(json.data.sender_name || '')
+        }
+        // Set domain form values if domain is already configured
+        if (json.data.domain) {
+          setDomain(json.data.domain)
+        }
+        // Load DNS records if they exist
+        if (json.data.domain_dns_records) {
+          setDomainDnsRecords(json.data.domain_dns_records)
         }
       }
     } catch (e: any) {
@@ -276,6 +304,128 @@ export default function PreventionPage() {
       setVerificationError(e.message || 'Failed to validate OTP')
     } finally {
       setIsValidatingOtp(false)
+    }
+  }
+
+  // Handle domain setup
+  const handleSetupDomain = async () => {
+    if (!companyId || !domain) return
+    const token = getSessionToken()
+    if (!token) return
+
+    setIsSettingUpDomain(true)
+    setDomainError(null)
+    setDomainDnsRecords(null)
+
+    try {
+      const res = await fetch(`/api/companies/${companyId}/verification/domain`, {
+        method: 'POST',
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          domain: domain.trim()
+        })
+      })
+      const json = await res.json()
+      
+      if (json?.success) {
+        // Store DNS records from response
+        if (json.data?.dns_records) {
+          setDomainDnsRecords(json.data.dns_records)
+        }
+        // Refresh verification settings to get updated domain info
+        await fetchVerificationSettings()
+      } else {
+        setDomainError(json?.error || 'Failed to set up domain')
+        // Auto-dismiss error after 8 seconds
+        setTimeout(() => setDomainError(null), 8000)
+      }
+    } catch (e: any) {
+      console.error('Failed to set up domain:', e)
+      setDomainError(e.message || 'Failed to set up domain')
+      // Auto-dismiss error after 8 seconds
+      setTimeout(() => setDomainError(null), 8000)
+    } finally {
+      setIsSettingUpDomain(false)
+    }
+  }
+
+  // Validate domain configuration
+  const handleValidateDomain = async () => {
+    if (!companyId || !verificationSettings?.domain) return
+    const token = getSessionToken()
+    if (!token) return
+
+    setIsValidatingDomain(true)
+    setDomainError(null)
+
+    try {
+      const res = await fetch(`/api/companies/${companyId}/verification/domain`, {
+        method: 'GET',
+        headers: { 
+          Authorization: `Bearer ${token}`
+        }
+      })
+      const json = await res.json()
+      
+      if (json?.success) {
+        setDomainValidationResult(json.data)
+        // Update DNS records if they've changed
+        if (json.data?.dns_records) {
+          setDomainDnsRecords(json.data.dns_records)
+        }
+      } else {
+        setDomainError(json?.error || 'Failed to validate domain')
+        setDomainValidationResult(null)
+        // Auto-dismiss error after 8 seconds
+        setTimeout(() => setDomainError(null), 8000)
+      }
+    } catch (e: any) {
+      console.error('Failed to validate domain:', e)
+      setDomainError(e.message || 'Failed to validate domain')
+      setDomainValidationResult(null)
+      // Auto-dismiss error after 8 seconds
+      setTimeout(() => setDomainError(null), 8000)
+    } finally {
+      setIsValidatingDomain(false)
+    }
+  }
+
+  // Authenticate domain
+  const handleAuthenticateDomain = async () => {
+    if (!companyId || !verificationSettings?.domain) return
+    const token = getSessionToken()
+    if (!token) return
+
+    setIsAuthenticatingDomain(true)
+    setDomainError(null)
+
+    try {
+      const res = await fetch(`/api/companies/${companyId}/verification/domain/authenticate`, {
+        method: 'PUT',
+        headers: { 
+          Authorization: `Bearer ${token}`
+        }
+      })
+      const json = await res.json()
+      
+      if (json?.success) {
+        // Re-validate to get updated status
+        await handleValidateDomain()
+      } else {
+        setDomainError(json?.error || 'Failed to authenticate domain')
+        // Auto-dismiss error after 8 seconds
+        setTimeout(() => setDomainError(null), 8000)
+      }
+    } catch (e: any) {
+      console.error('Failed to authenticate domain:', e)
+      setDomainError(e.message || 'Failed to authenticate domain')
+      // Auto-dismiss error after 8 seconds
+      setTimeout(() => setDomainError(null), 8000)
+    } finally {
+      setIsAuthenticatingDomain(false)
     }
   }
 
@@ -1020,61 +1170,295 @@ export default function PreventionPage() {
                 Configure your DNS records so that emails for account verification are sent from your verified domain.
               </p>
 
-              <div className="p-4 rounded-lg mb-4" style={{ backgroundColor: 'var(--hover-bg)', borderColor: 'var(--border-color)', border: '1px solid' }}>
-                <div className="flex items-start gap-2 mb-3">
-                  <Globe className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-primary)' }} />
-                  <div className="flex-1">
-                    <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-                      DNS Configuration Required
-                    </h3>
-                    <p className="text-sm mb-3" style={{ color: 'var(--text-tertiary)' }}>
-                      Add the following DNS records to your domain's DNS settings:
-                    </p>
-                    <div className="space-y-2">
-                      <div className="p-3 rounded bg-black/20">
-                        <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>SPF Record:</p>
-                        <p className="text-sm font-mono" style={{ color: 'var(--text-primary)' }}>
-                          v=spf1 include:unsharedlabs.com ~all
-                        </p>
-                      </div>
-                      <div className="p-3 rounded bg-black/20">
-                        <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>DKIM Record:</p>
-                        <p className="text-sm font-mono" style={{ color: 'var(--text-primary)' }}>
-                          (Instructions will be provided after email verification)
+              {!verificationSettings?.domain ? (
+                <>
+                  <div className="space-y-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                        Domain
+                      </label>
+                      <input
+                        type="text"
+                        value={domain}
+                        onChange={(e) => setDomain(e.target.value.trim())}
+                        placeholder="example.com"
+                        className="w-full px-4 py-2 rounded-lg border-2 text-sm"
+                        style={{
+                          backgroundColor: 'var(--card-bg)',
+                          borderColor: 'var(--border-strong)',
+                          color: 'var(--text-primary)'
+                        }}
+                      />
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        The domain you want to authenticate (e.g., example.com)
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleSetupDomain}
+                      disabled={!domain || isSettingUpDomain}
+                      className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+                      style={{
+                        backgroundColor: (!domain || isSettingUpDomain) ? 'var(--hover-bg)' : '#10b981',
+                        color: (!domain || isSettingUpDomain) ? 'var(--text-tertiary)' : 'white',
+                        cursor: (!domain || isSettingUpDomain) ? 'not-allowed' : 'pointer',
+                        opacity: (!domain || isSettingUpDomain) ? 0.5 : 1,
+                      }}
+                    >
+                      {isSettingUpDomain ? (
+                        <>
+                          <Clock className="w-4 h-4 animate-spin" />
+                          <span>Setting up domain...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Globe className="w-4 h-4" />
+                          <span>Set Up Domain</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Domain Error Display */}
+                  {domainError && (
+                    <div className="p-3 rounded-lg mt-4 flex items-start justify-between gap-2" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444' }}>
+                      <p className="text-sm flex-1" style={{ color: '#ef4444' }}>
+                        {domainError}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setDomainError(null)}
+                        className="flex-shrink-0 p-1 rounded hover:bg-red-200/20 transition-colors"
+                        style={{ color: '#ef4444' }}
+                        aria-label="Close error"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="p-4 rounded-lg mb-4" style={{ 
+                  backgroundColor: domainValidationResult?.authenticated ? 'rgba(16, 185, 129, 0.1)' : 'rgba(234, 179, 8, 0.1)', 
+                  border: `1px solid ${domainValidationResult?.authenticated ? '#10b981' : '#eab308'}` 
+                }}>
+                  <div className="flex items-start gap-2 mb-3">
+                    {domainValidationResult?.authenticated ? (
+                      <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#10b981' }} />
+                    ) : (
+                      <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#eab308' }} />
+                    )}
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold mb-2" style={{ color: domainValidationResult?.authenticated ? '#10b981' : '#eab308' }}>
+                        {domainValidationResult?.authenticated ? 'Domain Configured' : 'Domain Configuration in Progress'}
+                      </h3>
+                      <div className="space-y-1 text-sm">
+                        <p style={{ color: 'var(--text-primary)' }}>
+                          <span className="font-medium">Domain:</span> {verificationSettings.domain}
                         </p>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {/* Domain Error Display (when domain is already configured) */}
+              {domainError && verificationSettings?.domain && (
+                <div className="p-3 rounded-lg mt-4 flex items-start justify-between gap-2" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444' }}>
+                  <p className="text-sm flex-1" style={{ color: '#ef4444' }}>
+                    {domainError}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setDomainError(null)}
+                    className="flex-shrink-0 p-1 rounded hover:bg-red-200/20 transition-colors"
+                    style={{ color: '#ef4444' }}
+                    aria-label="Close error"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* Display DNS Records and Validation */}
+              {(domainDnsRecords || verificationSettings?.domain) && (
+                <div className="p-4 rounded-lg mb-4" style={{ backgroundColor: 'var(--hover-bg)', borderColor: 'var(--border-color)', border: '1px solid' }}>
+                  <div className="flex items-start gap-2 mb-3">
+                    <Globe className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-primary)' }} />
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                        DNS Records Required
+                      </h3>
+
+                      <p className="text-sm mb-3" style={{ color: 'var(--text-tertiary)' }}>
+                        Add the following DNS records to your domain's DNS settings to authenticate your domain:
+                      </p>
+                      <div className="space-y-3">
+                        {/* Record 1: Brevo Code TXT (from Brevo POST) */}
+                        {(domainDnsRecords?.brevo_code || domainValidationResult?.dns_records?.brevo_code) && (
+                          <div className="p-3 rounded bg-black/20">
+                            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                              Record 1: Brevo Code TXT Record
+                            </p>
+                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                              Type: {(domainDnsRecords?.brevo_code || domainValidationResult?.dns_records?.brevo_code)?.type || 'TXT'}
+                            </p>
+                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                              Name: {(domainDnsRecords?.brevo_code || domainValidationResult?.dns_records?.brevo_code)?.host_name || '@'}
+                            </p>
+                            <p className="text-sm font-mono break-all mb-2" style={{ color: 'var(--text-primary)' }}>
+                              Value: {(domainDnsRecords?.brevo_code || domainValidationResult?.dns_records?.brevo_code)?.value}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Record 2: DKIM TXT (from Brevo POST) */}
+                        {(domainDnsRecords?.dkim_txt || domainValidationResult?.dns_records?.dkim_record) && (
+                          <div className="p-3 rounded bg-black/20">
+                            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                              Record 2: DKIM TXT Record
+                            </p>
+                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                              Type: {(domainDnsRecords?.dkim_txt || domainValidationResult?.dns_records?.dkim_record)?.type || 'TXT'}
+                            </p>
+                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                              Name: {(domainDnsRecords?.dkim_txt || domainValidationResult?.dns_records?.dkim_record)?.host_name || 'mail._domainkey'}
+                            </p>
+                            <p className="text-sm font-mono break-all mb-2" style={{ color: 'var(--text-primary)' }}>
+                              Value: {(domainDnsRecords?.dkim_txt || domainValidationResult?.dns_records?.dkim_record)?.value}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Record 3: DKIM 1 CNAME (constructed) */}
+                        {domainDnsRecords?.dkim1_cname && (
+                          <div className="p-3 rounded bg-black/20">
+                            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                              Record 3: DKIM 1 CNAME Record
+                            </p>
+                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                              Type: {domainDnsRecords?.dkim1_cname?.type}
+                            </p>
+                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                              Name: {domainDnsRecords?.dkim1_cname?.name}
+                            </p>
+                            <p className="text-sm font-mono break-all mb-2" style={{ color: 'var(--text-primary)' }}>
+                              Value: {domainDnsRecords?.dkim1_cname?.value}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Record 4: DKIM 2 CNAME (constructed) */}
+                        {domainDnsRecords?.dkim2_cname && (
+                          <div className="p-3 rounded bg-black/20">
+                            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                              Record 4: DKIM 2 CNAME Record
+                            </p>
+                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                              Type: {domainDnsRecords?.dkim2_cname?.type}
+                            </p>
+                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                              Name: {domainDnsRecords?.dkim2_cname?.name}
+                            </p>
+                            <p className="text-sm font-mono break-all mb-2" style={{ color: 'var(--text-primary)' }}>
+                              Value: {domainDnsRecords?.dkim2_cname?.value}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Record 5: DMARC TXT (constructed) */}
+                        {domainDnsRecords?.dmarc_txt && (
+                          <div className="p-3 rounded bg-black/20">
+                            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                              Record 5: DMARC TXT Record
+                            </p>
+                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                              Type: {domainDnsRecords?.dmarc_txt?.type}
+                            </p>
+                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                              Name: {domainDnsRecords?.dmarc_txt?.name}
+                            </p>
+                            <p className="text-sm font-mono break-all mb-2" style={{ color: 'var(--text-primary)' }}>
+                              Value: {domainDnsRecords?.dmarc_txt?.value}
+                            </p>
+                          </div>
+                        )}
+
+                        {!domainDnsRecords && !domainValidationResult?.dns_records && verificationSettings?.domain && (
+                          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                            DNS records will be displayed here after domain setup. Click "Test Domain" to validate.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
 
               {!step2Complete && (
                 <div className="mt-4">
                   {canMarkStep2 ? (
-                    <button
-                      type="button"
-                      onClick={() => handleMarkStepComplete(2)}
-                      disabled={isMarkingStepComplete === 2}
-                      className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
-                      style={{
-                        backgroundColor: isMarkingStepComplete === 2 ? 'var(--hover-bg)' : '#10b981',
-                        color: isMarkingStepComplete === 2 ? 'var(--text-tertiary)' : 'white',
-                        cursor: isMarkingStepComplete === 2 ? 'not-allowed' : 'pointer',
-                        opacity: isMarkingStepComplete === 2 ? 0.5 : 1,
-                      }}
-                    >
-                      {isMarkingStepComplete === 2 ? (
-                        <>
-                          <Clock className="w-4 h-4 animate-spin" />
-                          <span>Marking Complete...</span>
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="w-4 h-4" />
-                          <span>Mark as Complete</span>
-                        </>
+                    <>
+                      {/* Validation Status Message */}
+                      {domainValidationResult && !domainValidationResult.authenticated && (
+                        <div className="mb-3 p-2 rounded" style={{ backgroundColor: domainValidationResult.verified ? 'rgba(59, 130, 246, 0.1)' : 'rgba(239, 68, 68, 0.1)' }}>
+                          <div className="flex items-center gap-2 text-xs">
+                            {domainValidationResult.verified ? (
+                              <>
+                                <AlertTriangle className="w-4 h-4" style={{ color: '#3b82f6' }} />
+                                <span style={{ color: '#3b82f6' }}>Domain is verified. Click "Test Domain to Complete" to authenticate.</span>
+                              </>
+                            ) : (
+                              <>
+                                <AlertTriangle className="w-4 h-4" style={{ color: '#ef4444' }} />
+                                <span style={{ color: '#ef4444' }}>Domain is not verified. Please add DNS records to your domain.</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
                       )}
-                    </button>
+                      {!domainValidationResult && verificationSettings?.domain && (
+                        <div className="mb-3 p-2 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)' }}>
+                          <div className="flex items-center gap-2 text-xs">
+                            <AlertTriangle className="w-4 h-4" style={{ color: '#ef4444' }} />
+                            <span style={{ color: '#ef4444' }}>Domain is not verified. Please add DNS records to your domain.</span>
+                          </div>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          // First validate domain
+                          await handleValidateDomain()
+                          // If authenticated, mark as complete
+                          if (domainValidationResult?.authenticated) {
+                            await handleMarkStepComplete(2)
+                          }
+                        }}
+                        disabled={isValidatingDomain || isMarkingStepComplete === 2}
+                        className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+                        style={{
+                          backgroundColor: (isValidatingDomain || isMarkingStepComplete === 2) ? 'var(--hover-bg)' : '#10b981',
+                          color: (isValidatingDomain || isMarkingStepComplete === 2) ? 'var(--text-tertiary)' : 'white',
+                          cursor: (isValidatingDomain || isMarkingStepComplete === 2) ? 'not-allowed' : 'pointer',
+                          opacity: (isValidatingDomain || isMarkingStepComplete === 2) ? 0.5 : 1,
+                        }}
+                      >
+                        {isValidatingDomain || isMarkingStepComplete === 2 ? (
+                          <>
+                            <Clock className="w-4 h-4 animate-spin" />
+                            <span>{isValidatingDomain ? 'Testing Domain...' : 'Marking Complete...'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Shield className="w-4 h-4" />
+                            <span>Test Domain to Complete</span>
+                          </>
+                        )}
+                      </button>
+                    </>
                   ) : (
                     <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
                       <p className="text-xs flex items-center gap-2" style={{ color: 'var(--text-tertiary)' }}>

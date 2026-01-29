@@ -145,6 +145,9 @@ export async function saveVerificationSettings(
     sender_id?: string
     is_verified?: boolean
     prevention_steps?: { step1: boolean; step2: boolean; step3: boolean }
+    domain?: string
+    domain_brevo_id?: string
+    domain_dns_records?: any // JSONB to store all DNS records
   }
 ) {
   try {
@@ -196,6 +199,24 @@ export async function saveVerificationSettings(
       updateData.is_verified = settings.is_verified
     } else if (existingSettings?.is_verified !== undefined) {
       updateData.is_verified = existingSettings.is_verified
+    }
+
+    if (settings.domain !== undefined) {
+      updateData.domain = settings.domain
+    } else if (existingSettings?.domain) {
+      updateData.domain = existingSettings.domain
+    }
+
+    if (settings.domain_brevo_id !== undefined) {
+      updateData.domain_brevo_id = settings.domain_brevo_id
+    } else if (existingSettings?.domain_brevo_id) {
+      updateData.domain_brevo_id = existingSettings.domain_brevo_id
+    }
+
+    if (settings.domain_dns_records !== undefined) {
+      updateData.domain_dns_records = settings.domain_dns_records
+    } else if (existingSettings?.domain_dns_records) {
+      updateData.domain_dns_records = existingSettings.domain_dns_records
     }
 
     const { data, error } = await supabaseAdmin

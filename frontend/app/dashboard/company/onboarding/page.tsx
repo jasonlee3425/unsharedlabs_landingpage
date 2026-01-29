@@ -45,6 +45,7 @@ type OnboardingState = {
   nodejsSteps: Record<NodeStepId, boolean>
   nextjsSteps: Record<NextjsStepId, boolean>
   completedTechStacks?: string[] // Track which tech stacks were completed when onboarding was marked complete
+  optIntoVerification?: boolean // Whether user opted into account verification setup
   lastScreen: Screen
 }
 
@@ -62,6 +63,7 @@ const DEFAULT_STATE: OnboardingState = {
     install: false,
     integrate: false,
   },
+  optIntoVerification: false,
   lastScreen: 'select',
 }
 
@@ -267,8 +269,13 @@ export default function OnboardingPage() {
   const selectedUnsupported = useMemo(() => selectedTechObjects.filter((t) => !t.available), [selectedTechObjects])
   const nodeSelected = selectedTechStacks.includes('nodejs')
   const nextjsSelected = selectedTechStacks.includes('nextjs')
-  const nodeStepsCompletedCount = (Object.values(state.nodejsSteps) as boolean[]).filter(Boolean).length
-  const nodeStepsTotal = Object.keys(state.nodejsSteps).length
+  // Calculate steps - exclude verification step if not opted in
+  const optIntoVerification = state.optIntoVerification ?? false
+  const nodeStepsToCount = optIntoVerification 
+    ? Object.keys(state.nodejsSteps) 
+    : Object.keys(state.nodejsSteps).filter(step => step !== 'verification')
+  const nodeStepsCompletedCount = nodeStepsToCount.filter(step => state.nodejsSteps[step as NodeStepId]).length
+  const nodeStepsTotal = nodeStepsToCount.length
   const nodeProgress = nodeStepsTotal > 0 ? nodeStepsCompletedCount / nodeStepsTotal : 0
   const nodeOnboardingComplete = nodeSelected && nodeStepsCompletedCount === nodeStepsTotal
   
@@ -368,6 +375,13 @@ export default function OnboardingPage() {
       setHasScrolledToIncomplete(true)
     }
   }, [screen, isLoadingOnboarding, state.nodejsSteps, state.nextjsSteps, hasScrolledToIncomplete, lastScreen])
+
+  // Check prevention status when opted into verification
+  useEffect(() => {
+    if (state.optIntoVerification && companyId && screen === 'nodejs') {
+      void checkPreventionComplete()
+    }
+  }, [state.optIntoVerification, companyId, screen])
 
   useEffect(() => {
     const load = async () => {
@@ -563,13 +577,60 @@ export default function OnboardingPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const toggleNodeStep = (stepId: NodeStepId) => {
+  // Check if prevention setup is complete
+  const [preventionComplete, setPreventionComplete] = useState<boolean | null>(null)
+  const [isCheckingPrevention, setIsCheckingPrevention] = useState(false)
+
+  const checkPreventionComplete = async (): Promise<boolean> => {
+    if (!companyId) return false
+    const token = getSessionToken()
+    if (!token) return false
+
+    try {
+      setIsCheckingPrevention(true)
+      const res = await fetch(`/api/companies/${companyId}/verification`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const json = await res.json()
+      if (json?.success && json.data) {
+        const preventionSteps = json.data.prevention_steps || { step1: false, step2: false, step3: false }
+        const isVerified = json.data.is_verified || false
+        const step1Complete = preventionSteps.step1 || isVerified
+        const step2Complete = preventionSteps.step2 || false
+        const step3Complete = preventionSteps.step3 || false
+        const complete = step1Complete && step2Complete && step3Complete
+        setPreventionComplete(complete)
+        return complete
+      }
+      setPreventionComplete(false)
+      return false
+    } catch (e) {
+      console.error('Failed to check prevention status:', e)
+      setPreventionComplete(false)
+      return false
+    } finally {
+      setIsCheckingPrevention(false)
+    }
+  }
+
+  const toggleNodeStep = async (stepId: NodeStepId) => {
     // Only allow marking as complete, not uncompleting
     if (state.nodejsSteps[stepId]) return
     
-    // Enforce sequential completion (verification is optional and can be completed at any time)
+    // Enforce sequential completion
     if (stepId === 'verification') {
-      // Verification step can be completed at any time
+      // Verification step requires prevention to be complete if opted in
+      if (state.optIntoVerification) {
+        const isComplete = await checkPreventionComplete()
+        if (!isComplete) {
+          // Show error or redirect to prevention page
+          alert('Please complete all prevention steps before marking this step as complete.')
+          return
+        }
+      } else {
+        // Not opted in, cannot complete
+        return
+      }
     } else {
       const stepOrder: NodeStepId[] = ['credentials', 'install', 'initialize', 'integrate', 'handle']
       const currentIndex = stepOrder.indexOf(stepId)
@@ -744,12 +805,20 @@ export default function OnboardingPage() {
     const canComplete = (() => {
       if (isCompleted) return false // Already completed
       
+      // If verification step and not opted in, cannot complete
+      if (stepId === 'verification' && !(state.optIntoVerification ?? false)) {
+        return false
+      }
+      
       if (stackType === 'nodejs') {
         const stepOrder: NodeStepId[] = ['credentials', 'install', 'initialize', 'integrate', 'handle', 'verification']
         const currentIndex = stepOrder.indexOf(stepId as NodeStepId)
         if (currentIndex === 0) return true // First step
-        // Verification step is optional, so it can be completed at any time
-        if (stepId === 'verification') return true
+        // Verification step requires prevention to be complete if opted in
+        if (stepId === 'verification') {
+          // Return true if prevention is complete (will be checked async in handleToggle)
+          return preventionComplete === true
+        }
         const previousStep = stepOrder[currentIndex - 1]
         return Boolean(state.nodejsSteps[previousStep])
       } else {
@@ -761,10 +830,10 @@ export default function OnboardingPage() {
       }
     })()
     
-    const handleToggle = () => {
+    const handleToggle = async () => {
       if (!canComplete) return
       if (stackType === 'nodejs') {
-        toggleNodeStep(stepId as NodeStepId)
+        await toggleNodeStep(stepId as NodeStepId)
       } else {
         toggleNextjsStep(stepId as NextjsStepId)
       }
@@ -823,32 +892,46 @@ export default function OnboardingPage() {
                   </button>
                 )}
                 {!isCompleted && (
-                  <button
-                    type="button"
-                    onClick={handleToggle}
-                    disabled={!canComplete}
-                    className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
-                    style={{
-                      backgroundColor: canComplete ? '#10b981' : 'var(--hover-bg)',
-                      color: canComplete ? 'white' : 'var(--text-tertiary)',
-                      cursor: canComplete ? 'pointer' : 'not-allowed',
-                      opacity: canComplete ? 1 : 0.5,
-                    }}
-                    onMouseEnter={(e) => {
-                      if (canComplete) {
-                        e.currentTarget.style.backgroundColor = '#059669'
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (canComplete) {
-                        e.currentTarget.style.backgroundColor = '#10b981'
-                      }
-                    }}
-                    title={!canComplete ? 'Complete previous steps first' : ''}
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                    <span>Mark as Complete</span>
-                  </button>
+                  <>
+                    {/* Hide "Mark as Complete" for verification step if not opted in */}
+                    {stepId === 'verification' && !(state.optIntoVerification ?? false) ? null : (
+                      <button
+                        type="button"
+                        onClick={handleToggle}
+                        disabled={!canComplete || isCheckingPrevention}
+                        className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+                        style={{
+                          backgroundColor: canComplete && !isCheckingPrevention ? '#10b981' : 'var(--hover-bg)',
+                          color: canComplete && !isCheckingPrevention ? 'white' : 'var(--text-tertiary)',
+                          cursor: canComplete && !isCheckingPrevention ? 'pointer' : 'not-allowed',
+                          opacity: canComplete && !isCheckingPrevention ? 1 : 0.5,
+                        }}
+                        onMouseEnter={(e) => {
+                          if (canComplete && !isCheckingPrevention) {
+                            e.currentTarget.style.backgroundColor = '#059669'
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (canComplete && !isCheckingPrevention) {
+                            e.currentTarget.style.backgroundColor = '#10b981'
+                          }
+                        }}
+                        title={!canComplete ? 'Complete previous steps first' : ''}
+                      >
+                        {isCheckingPrevention ? (
+                          <>
+                            <Clock className="w-4 h-4 animate-spin" />
+                            <span>Checking...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4" />
+                            <span>Mark as Complete</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -1780,40 +1863,79 @@ export async function POST(req: Request) {
             </div>
           </StepCard>
 
-          <StepCard stepId="verification" stepNumber={6} title="Set up Account Verification (Optional)" description="Set up account verification to send verification emails from your own domain">
+          <StepCard stepId="verification" stepNumber={6} title="Set up Account Verification (Optional)" description="Set up account verification to send verification emails from your own domain.">
             <div className="space-y-4">
-              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                Set up account verification to send verification emails from your own domain. This step is optional.
-              </p>
               
-              <button
-                type="button"
-                onClick={() => {
-                  router.push('/dashboard/company/prevention')
-                }}
-                className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
-                style={{
-                  backgroundColor: '#10b981',
-                  color: 'white',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#059669'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#10b981'
-                }}
-              >
-                <Shield className="w-4 h-4" />
-                <span>Go to Prevention Settings</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-
-              <div className="flex items-start gap-2 p-3 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
-                <Shield className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#3b82f6' }} />
-                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                  <strong style={{ color: 'var(--text-primary)' }}>Note:</strong> This step is optional. You can skip it and complete it later if needed.
-                </p>
+              {/* Toggle to opt into verification */}
+              <div className="flex items-center gap-3 p-4 rounded-lg border-2" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-strong)' }}>
+                <label className="flex items-center gap-3 cursor-pointer flex-1">
+                  <input
+                    type="checkbox"
+                    checked={state.optIntoVerification ?? false}
+                    onChange={(e) => {
+                      const next: OnboardingState = { ...state, optIntoVerification: e.target.checked }
+                      setState(next)
+                      void persist(next)
+                      // Check prevention status when opting in
+                      if (e.target.checked) {
+                        void checkPreventionComplete()
+                      }
+                    }}
+                    className="w-5 h-5 rounded border-2 cursor-pointer"
+                    style={{
+                      accentColor: '#10b981',
+                      borderColor: 'var(--border-strong)',
+                    }}
+                  />
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                    I want to set up account verification
+                  </span>
+                </label>
               </div>
+
+              {/* Show prevention link and info if opted in */}
+              {state.optIntoVerification && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      router.push('/dashboard/company/prevention')
+                    }}
+                    className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+                    style={{
+                      backgroundColor: '#10b981',
+                      color: 'white',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#059669'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#10b981'
+                    }}
+                  >
+                    <Shield className="w-4 h-4" />
+                    <span>Go to Prevention Settings</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+
+                  <div className="flex items-start gap-2 p-3 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
+                    <Shield className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#3b82f6' }} />
+                    <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      <strong style={{ color: 'var(--text-primary)' }}>Note:</strong> You must complete all prevention steps before you can mark this onboarding step as complete.
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {/* Show info if not opted in */}
+              {!state.optIntoVerification && (
+                <div className="flex items-start gap-2 p-3 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
+                  <Shield className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#3b82f6' }} />
+                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                    <strong style={{ color: 'var(--text-primary)' }}>Note:</strong> This step is optional. Check the box above to include it in your onboarding progress.
+                  </p>
+                </div>
+              )}
             </div>
           </StepCard>
         </div>
