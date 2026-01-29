@@ -171,7 +171,7 @@ export default function SettingsPage() {
             <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
               <p className="text-xs flex items-start gap-2" style={{ color: 'var(--text-primary)' }}>
                 <span className="font-semibold">Note:</span>
-                <span>Your API key will <strong>not</strong> be reset. It will remain unchanged in the database and can still be used in your applications.</span>
+                <span>Your API key and prevention steps will <strong>not</strong> be reset. They will remain unchanged in the database.</span>
               </p>
             </div>
             
@@ -226,7 +226,7 @@ export default function SettingsPage() {
                 <div className="p-3 rounded-lg mb-4" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
                   <p className="text-xs flex items-start gap-2" style={{ color: 'var(--text-primary)' }}>
                     <span className="font-semibold">Important:</span>
-                    <span>Your API key will <strong>not</strong> be reset or deleted. It will remain unchanged and can continue to be used in your applications.</span>
+                    <span>Your API key and prevention steps will <strong>not</strong> be reset or deleted. They will remain unchanged and can continue to be used.</span>
                   </p>
                 </div>
               </div>

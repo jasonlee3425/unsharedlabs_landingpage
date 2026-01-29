@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import DashboardLayout from '@/components/DashboardLayout'
 import { useAuth } from '@/lib/auth-context'
 import { getSessionToken } from '@/lib/auth'
-import { Shield, Mail, Clock, CheckCircle, AlertTriangle, Edit, Globe, X } from 'lucide-react'
+import { Shield, Mail, Clock, CheckCircle, AlertTriangle, Edit, Globe, X, ChevronDown, ChevronUp } from 'lucide-react'
 
 interface PreventionSteps {
   step1: boolean
@@ -43,6 +43,11 @@ export default function PreventionPage() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [isUpdatingSender, setIsUpdatingSender] = useState(false)
   const [isMarkingStepComplete, setIsMarkingStepComplete] = useState<number | null>(null)
+  const [collapsedSteps, setCollapsedSteps] = useState<Record<number, boolean>>({})
+  const [isUpdateFlow, setIsUpdateFlow] = useState(false)
+  const [updateSenderCreated, setUpdateSenderCreated] = useState(false)
+  const [updateOtp, setUpdateOtp] = useState('')
+  const [isValidatingUpdateOtp, setIsValidatingUpdateOtp] = useState(false)
 
   // Fetch verification settings on load
   useEffect(() => {
@@ -50,6 +55,16 @@ export default function PreventionPage() {
       fetchVerificationSettings()
     }
   }, [companyId])
+
+  // Debug: Log state changes
+  useEffect(() => {
+    console.log('State updated:', { 
+      verificationEmail, 
+      verificationName, 
+      emailLength: verificationEmail?.length,
+      nameLength: verificationName?.length 
+    })
+  }, [verificationEmail, verificationName])
 
   const fetchVerificationSettings = async () => {
     if (!companyId) return
@@ -67,7 +82,8 @@ export default function PreventionPage() {
         if (json.data.is_verified) {
           setSenderCreated(true)
         } else if (json.data.sender_id) {
-          setSenderCreated(true)
+          // If sender_id exists but not verified, we should show OTP input
+          // Don't set senderCreated to true here - let the UI logic handle it
           setVerificationEmail(json.data.sender_email || '')
           setVerificationName(json.data.sender_name || '')
         }
@@ -81,10 +97,21 @@ export default function PreventionPage() {
 
   // Create sender for account verification
   const handleCreateSender = async () => {
-    if (!companyId || !verificationEmail || !verificationName) return
+    console.log('handleCreateSender called', { companyId, verificationEmail, verificationName })
+    
+    if (!companyId || !verificationEmail || !verificationName) {
+      console.error('Missing required fields:', { companyId, verificationEmail, verificationName })
+      setVerificationError('Please fill in both email and name fields')
+      return
+    }
     const token = getSessionToken()
-    if (!token) return
+    if (!token) {
+      console.error('No session token found')
+      setVerificationError('Not authenticated. Please sign in again.')
+      return
+    }
 
+    console.log('Creating sender with:', { email: verificationEmail, name: verificationName })
     setIsCreatingSender(true)
     setVerificationError(null)
 
@@ -100,12 +127,19 @@ export default function PreventionPage() {
           name: verificationName
         })
       })
+      
       const json = await res.json()
+      console.log('Create sender response:', { status: res.status, json })
+      
       if (json?.success) {
         setSenderCreated(true)
+        // Ensure step 1 card is expanded when sender is created so user can enter OTP
+        setCollapsedSteps(prev => ({ ...prev, 1: false }))
         await fetchVerificationSettings()
       } else {
-        setVerificationError(json?.error || 'Failed to create sender')
+        const errorMsg = json?.error || 'Failed to create sender'
+        console.error('Failed to create sender:', errorMsg)
+        setVerificationError(errorMsg)
       }
     } catch (e: any) {
       console.error('Failed to create sender:', e)
@@ -115,8 +149,8 @@ export default function PreventionPage() {
     }
   }
 
-  // Update sender for account verification
-  const handleUpdateSender = async () => {
+  // Step 1: Create sender for update flow
+  const handleCreateUpdateSender = async () => {
     if (!companyId || !verificationEmail || !verificationName) return
     const token = getSessionToken()
     if (!token) return
@@ -133,24 +167,80 @@ export default function PreventionPage() {
         },
         body: JSON.stringify({
           email: verificationEmail,
-          name: verificationName
+          name: verificationName,
+          updateMode: true // Flag to indicate this is an update flow
         })
       })
       const json = await res.json()
       if (json?.success) {
-        setShowUpdateForm(false)
+        setUpdateSenderCreated(true)
+        setUpdateOtp('')
         setShowConfirmDialog(false)
-        setSenderCreated(true)
-        setOtp('')
-        await fetchVerificationSettings()
+        // Ensure step 1 card is expanded when update sender is created so user can enter OTP
+        setCollapsedSteps(prev => ({ ...prev, 1: false }))
       } else {
-        setVerificationError(json?.error || 'Failed to update sender')
+        setVerificationError(json?.error || 'Failed to create sender')
       }
     } catch (e: any) {
-      console.error('Failed to update sender:', e)
-      setVerificationError(e.message || 'Failed to update sender')
+      console.error('Failed to create sender:', e)
+      setVerificationError(e.message || 'Failed to create sender')
     } finally {
       setIsUpdatingSender(false)
+    }
+  }
+
+  // Step 2: Validate OTP and update sender in database
+  const handleValidateUpdateOtp = async () => {
+    if (!companyId || !updateOtp) return
+    const token = getSessionToken()
+    if (!token) return
+
+    setIsValidatingUpdateOtp(true)
+    setVerificationError(null)
+
+    try {
+      // First, get the current sender_id (from the newly created sender)
+      const settingsRes = await fetch(`/api/companies/${companyId}/verification`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const settingsJson = await settingsRes.json()
+      
+      if (!settingsJson?.success || !settingsJson.data?.sender_id) {
+        throw new Error('Sender not found. Please create sender first.')
+      }
+
+      // Validate OTP and update email/name in one call
+      const validateRes = await fetch(`/api/companies/${companyId}/verification`, {
+        method: 'PATCH',
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          otp: updateOtp,
+          email: verificationEmail,
+          name: verificationName
+        })
+      })
+      const validateJson = await validateRes.json()
+      
+      if (validateJson?.success) {
+        // Success! Reset states and refresh
+        setShowUpdateForm(false)
+        setIsUpdateFlow(false)
+        setUpdateSenderCreated(false)
+        setUpdateOtp('')
+        setAuthSuccess(true)
+        setDismissedSuccessBanner(false)
+        await fetchVerificationSettings()
+      } else {
+        setVerificationError(validateJson?.error || 'Invalid OTP')
+      }
+    } catch (e: any) {
+      console.error('Failed to validate OTP and update:', e)
+      setVerificationError(e.message || 'Failed to validate OTP')
+    } finally {
+      setIsValidatingUpdateOtp(false)
     }
   }
 
@@ -232,11 +322,53 @@ export default function PreventionPage() {
   const progress = (currentStep / totalSteps) * 100
 
   const isVerified = verificationSettings?.is_verified || false
-  const showSetupForm = !isVerified && (showUpdateForm || !verificationSettings?.sender_id)
+  const hasSenderId = !!verificationSettings?.sender_id
+  // Show setup form only if not verified AND (update form is open OR no sender_id exists yet)
+  const showSetupForm = !isVerified && (showUpdateForm || !hasSenderId)
+  // Show OTP input if sender_id exists but not verified yet
+  const showOtpInput = !isVerified && hasSenderId && !showUpdateForm
   
   // Check if steps can be marked complete (sequential requirement)
   const canMarkStep2 = step1Complete && !step2Complete
   const canMarkStep3 = step2Complete && !step3Complete
+
+  // Helper to generate email domain from company name
+  const getCompanyDomain = () => {
+    if (!user?.companyName) return 'example.com'
+    return user.companyName
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+      .slice(0, 20) + '.com'
+  }
+
+  // Placeholders
+  const senderNamePlaceholder = user?.companyName 
+    ? `e.g., ${user.companyName}`
+    : 'e.g., Company Name'
+  
+  const senderEmailPlaceholder = user?.companyName
+    ? `e.g., example@${getCompanyDomain()}`
+    : 'e.g., example@company.com'
+
+  // Toggle step collapse
+  const toggleStepCollapse = (step: number) => {
+    // Prevent collapsing step 1 if user is actively entering OTP or has form open
+    // Always keep open when sender is created (waiting for OTP)
+    if (step === 1 && (otp.length > 0 || updateOtp.length > 0 || showUpdateForm || senderCreated || updateSenderCreated)) {
+      return
+    }
+    setCollapsedSteps(prev => ({
+      ...prev,
+      [step]: !prev[step]
+    }))
+  }
+
+  // Ensure step 1 is expanded when sender is created (both initial and update flows)
+  useEffect(() => {
+    if ((senderCreated || updateSenderCreated) && collapsedSteps[1]) {
+      setCollapsedSteps(prev => ({ ...prev, 1: false }))
+    }
+  }, [senderCreated, updateSenderCreated])
 
   return (
     <DashboardLayout>
@@ -348,18 +480,39 @@ export default function PreventionPage() {
         <div className="max-w-3xl space-y-6">
           {/* Step 1: Account Verification */}
           <div className="p-6 rounded-lg border-2" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-strong)' }}>
-            <div className="flex items-center gap-2 mb-4">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                  currentStep >= 1 ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
-                }`}
-              >
-                {currentStep > 1 ? <CheckCircle className="w-5 h-5" /> : '1'}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                    currentStep >= 1 ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
+                  }`}
+                >
+                  {currentStep > 1 ? <CheckCircle className="w-5 h-5" /> : '1'}
+                </div>
+                <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  Set up Account Verification
+                </h2>
               </div>
-              <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
-                Set up Account Verification
-              </h2>
+              <button
+                type="button"
+                onClick={() => toggleStepCollapse(1)}
+                className="p-1 rounded transition-all"
+                style={{ color: 'var(--text-tertiary)' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                  e.currentTarget.style.color = 'var(--text-primary)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent'
+                  e.currentTarget.style.color = 'var(--text-tertiary)'
+                }}
+              >
+                {collapsedSteps[1] ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+              </button>
             </div>
+
+            {!collapsedSteps[1] && (
+              <>
 
             {isVerified ? (
               <>
@@ -387,6 +540,9 @@ export default function PreventionPage() {
                   type="button"
                   onClick={() => {
                     setShowUpdateForm(true)
+                    setIsUpdateFlow(true)
+                    setUpdateSenderCreated(false)
+                    setUpdateOtp('')
                     setVerificationEmail(verificationSettings?.sender_email || '')
                     setVerificationName(verificationSettings?.sender_name || '')
                   }}
@@ -416,80 +572,238 @@ export default function PreventionPage() {
                     <p className="text-sm mb-4 font-medium" style={{ color: 'var(--text-primary)' }}>
                       Update Account Verification Details
                     </p>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                          Sender Name
-                        </label>
-                        <input
-                          type="text"
-                          value={verificationName}
-                          onChange={(e) => setVerificationName(e.target.value)}
-                          placeholder="e.g., John Doe"
-                          className="w-full px-4 py-2 rounded-lg border-2 text-sm"
-                          style={{
-                            backgroundColor: 'var(--card-bg)',
-                            borderColor: 'var(--border-strong)',
-                            color: 'var(--text-primary)'
-                          }}
-                        />
-                      </div>
+                    
+                    {!updateSenderCreated ? (
+                      <>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                              Sender Name
+                            </label>
+                            <input
+                              type="text"
+                              value={verificationName}
+                              onChange={(e) => setVerificationName(e.target.value)}
+                              placeholder={senderNamePlaceholder}
+                              className="w-full px-4 py-2 rounded-lg border-2 text-sm"
+                              style={{
+                                backgroundColor: 'var(--card-bg)',
+                                borderColor: 'var(--border-strong)',
+                                color: 'var(--text-primary)'
+                              }}
+                            />
+                          </div>
 
-                      <div>
-                        <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                          Sender Email
-                        </label>
-                        <input
-                          type="email"
-                          value={verificationEmail}
-                          onChange={(e) => setVerificationEmail(e.target.value)}
-                          placeholder="e.g., jason@unsharedlabs.com"
-                          className="w-full px-4 py-2 rounded-lg border-2 text-sm"
-                          style={{
-                            backgroundColor: 'var(--card-bg)',
-                            borderColor: 'var(--border-strong)',
-                            color: 'var(--text-primary)'
-                          }}
-                        />
-                      </div>
+                          <div>
+                            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                              Sender Email
+                            </label>
+                            <input
+                              type="email"
+                              value={verificationEmail}
+                              onChange={(e) => setVerificationEmail(e.target.value)}
+                              placeholder={senderEmailPlaceholder}
+                              className="w-full px-4 py-2 rounded-lg border-2 text-sm"
+                              style={{
+                                backgroundColor: 'var(--card-bg)',
+                                borderColor: 'var(--border-strong)',
+                                color: 'var(--text-primary)'
+                              }}
+                            />
+                          </div>
 
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmDialog(true)}
-                          disabled={!verificationEmail || !verificationName || isUpdatingSender}
-                          className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
-                          style={{
-                            backgroundColor: (!verificationEmail || !verificationName || isUpdatingSender) ? 'var(--hover-bg)' : '#10b981',
-                            color: (!verificationEmail || !verificationName || isUpdatingSender) ? 'var(--text-tertiary)' : 'white',
-                            cursor: (!verificationEmail || !verificationName || isUpdatingSender) ? 'not-allowed' : 'pointer',
-                            opacity: (!verificationEmail || !verificationName || isUpdatingSender) ? 0.5 : 1,
-                          }}
-                        >
-                          {isUpdatingSender ? 'Saving...' : 'Save'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowUpdateForm(false)
-                            setVerificationEmail(verificationSettings?.sender_email || '')
-                            setVerificationName(verificationSettings?.sender_name || '')
-                            setVerificationError(null)
-                          }}
-                          className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
-                          style={{
-                            backgroundColor: 'var(--hover-bg)',
-                            borderColor: 'var(--border-strong)',
-                            color: 'var(--text-primary)',
-                            border: '2px solid var(--border-strong)'
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setShowConfirmDialog(true)}
+                              disabled={!verificationEmail || !verificationName || isUpdatingSender}
+                              className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                              style={{
+                                backgroundColor: (!verificationEmail || !verificationName || isUpdatingSender) ? 'var(--hover-bg)' : '#10b981',
+                                color: (!verificationEmail || !verificationName || isUpdatingSender) ? 'var(--text-tertiary)' : 'white',
+                                cursor: (!verificationEmail || !verificationName || isUpdatingSender) ? 'not-allowed' : 'pointer',
+                                opacity: (!verificationEmail || !verificationName || isUpdatingSender) ? 0.5 : 1,
+                              }}
+                            >
+                              {isUpdatingSender ? 'Creating Sender...' : 'Create Sender'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowUpdateForm(false)
+                                setIsUpdateFlow(false)
+                                setUpdateSenderCreated(false)
+                                setVerificationEmail(verificationSettings?.sender_email || '')
+                                setVerificationName(verificationSettings?.sender_name || '')
+                                setVerificationError(null)
+                              }}
+                              className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                              style={{
+                                backgroundColor: 'var(--hover-bg)',
+                                borderColor: 'var(--border-strong)',
+                                color: 'var(--text-primary)',
+                                border: '2px solid var(--border-strong)'
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="p-4 rounded-lg mb-4" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', border: '1px solid #10b981' }}>
+                          <p className="text-sm flex items-center gap-2" style={{ color: '#10b981' }}>
+                            <CheckCircle className="w-4 h-4" />
+                            Sender created successfully! Check your email ({verificationEmail}) for a 6-digit verification code.
+                          </p>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                              Enter 6-Digit Verification Code
+                            </label>
+                            <input
+                              type="text"
+                              value={updateOtp}
+                              onChange={(e) => setUpdateOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                              onFocus={() => {
+                                // Ensure step 1 is expanded when user focuses on OTP input
+                                if (collapsedSteps[1]) {
+                                  setCollapsedSteps(prev => ({ ...prev, 1: false }))
+                                }
+                              }}
+                              placeholder="000000"
+                              maxLength={6}
+                              className="w-full px-4 py-2 rounded-lg border-2 text-sm font-mono text-center text-2xl tracking-widest"
+                              style={{
+                                backgroundColor: 'var(--card-bg)',
+                                borderColor: 'var(--border-strong)',
+                                color: 'var(--text-primary)'
+                              }}
+                            />
+                            <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                              Enter the 6-digit code sent to {verificationEmail}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={handleValidateUpdateOtp}
+                              disabled={updateOtp.length !== 6 || isValidatingUpdateOtp}
+                              className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+                              style={{
+                                backgroundColor: (updateOtp.length !== 6 || isValidatingUpdateOtp) ? 'var(--hover-bg)' : '#10b981',
+                                color: (updateOtp.length !== 6 || isValidatingUpdateOtp) ? 'var(--text-tertiary)' : 'white',
+                                cursor: (updateOtp.length !== 6 || isValidatingUpdateOtp) ? 'not-allowed' : 'pointer',
+                                opacity: (updateOtp.length !== 6 || isValidatingUpdateOtp) ? 0.5 : 1,
+                              }}
+                            >
+                              {isValidatingUpdateOtp ? (
+                                <>
+                                  <Clock className="w-4 h-4 animate-spin" />
+                                  <span>Validating...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Shield className="w-4 h-4" />
+                                  <span>Verify & Update</span>
+                                </>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowUpdateForm(false)
+                                setIsUpdateFlow(false)
+                                setUpdateSenderCreated(false)
+                                setUpdateOtp('')
+                                setVerificationEmail(verificationSettings?.sender_email || '')
+                                setVerificationName(verificationSettings?.sender_name || '')
+                                setVerificationError(null)
+                              }}
+                              className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                              style={{
+                                backgroundColor: 'var(--hover-bg)',
+                                borderColor: 'var(--border-strong)',
+                                color: 'var(--text-primary)',
+                                border: '2px solid var(--border-strong)'
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
+              </>
+            ) : showOtpInput ? (
+              <>
+                <div className="p-4 rounded-lg mb-4" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', border: '1px solid #10b981' }}>
+                  <p className="text-sm flex items-center gap-2" style={{ color: '#10b981' }}>
+                    <CheckCircle className="w-4 h-4" />
+                    Sender created successfully! Check your email for a 6-digit verification code.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                      Enter 6-Digit Verification Code
+                    </label>
+                    <input
+                      type="text"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      onFocus={() => {
+                        // Ensure step 1 is expanded when user focuses on OTP input
+                        if (collapsedSteps[1]) {
+                          setCollapsedSteps(prev => ({ ...prev, 1: false }))
+                        }
+                      }}
+                      placeholder="000000"
+                      maxLength={6}
+                      className="w-full px-4 py-2 rounded-lg border-2 text-sm font-mono text-center text-2xl tracking-widest"
+                      style={{
+                        backgroundColor: 'var(--card-bg)',
+                        borderColor: 'var(--border-strong)',
+                        color: 'var(--text-primary)'
+                      }}
+                    />
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                      Enter the 6-digit code sent to {verificationSettings?.sender_email || verificationEmail}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleValidateOtp}
+                    disabled={otp.length !== 6 || isValidatingOtp}
+                    className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+                    style={{
+                      backgroundColor: (otp.length !== 6 || isValidatingOtp) ? 'var(--hover-bg)' : '#10b981',
+                      color: (otp.length !== 6 || isValidatingOtp) ? 'var(--text-tertiary)' : 'white',
+                      cursor: (otp.length !== 6 || isValidatingOtp) ? 'not-allowed' : 'pointer',
+                      opacity: (otp.length !== 6 || isValidatingOtp) ? 0.5 : 1,
+                    }}
+                  >
+                    {isValidatingOtp ? (
+                      <>
+                        <Clock className="w-4 h-4 animate-spin" />
+                        <span>Validating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Shield className="w-4 h-4" />
+                        <span>Authenticate</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </>
             ) : showSetupForm ? (
               <>
@@ -506,9 +820,12 @@ export default function PreventionPage() {
                         </label>
                         <input
                           type="text"
-                          value={verificationName}
-                          onChange={(e) => setVerificationName(e.target.value)}
-                          placeholder="e.g., John Doe"
+                          value={verificationName || ''}
+                          onChange={(e) => {
+                            console.log('Name input changed:', e.target.value)
+                            setVerificationName(e.target.value)
+                          }}
+                          placeholder={senderNamePlaceholder}
                           className="w-full px-4 py-2 rounded-lg border-2 text-sm"
                           style={{
                             backgroundColor: 'var(--card-bg)',
@@ -527,9 +844,12 @@ export default function PreventionPage() {
                         </label>
                         <input
                           type="email"
-                          value={verificationEmail}
-                          onChange={(e) => setVerificationEmail(e.target.value)}
-                          placeholder="e.g., jason@unsharedlabs.com"
+                          value={verificationEmail || ''}
+                          onChange={(e) => {
+                            console.log('Email input changed:', e.target.value)
+                            setVerificationEmail(e.target.value)
+                          }}
+                          placeholder={senderEmailPlaceholder}
                           className="w-full px-4 py-2 rounded-lg border-2 text-sm"
                           style={{
                             backgroundColor: 'var(--card-bg)',
@@ -544,14 +864,27 @@ export default function PreventionPage() {
 
                       <button
                         type="button"
-                        onClick={handleCreateSender}
-                        disabled={!verificationEmail || !verificationName || isCreatingSender}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          console.log('Button clicked', { 
+                            verificationEmail, 
+                            verificationName, 
+                            emailLength: verificationEmail?.length,
+                            nameLength: verificationName?.length,
+                            emailTruthy: !!verificationEmail,
+                            nameTruthy: !!verificationName,
+                            isCreatingSender 
+                          })
+                          handleCreateSender()
+                        }}
+                        disabled={!verificationEmail?.trim() || !verificationName?.trim() || isCreatingSender}
                         className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
                         style={{
-                          backgroundColor: (!verificationEmail || !verificationName || isCreatingSender) ? 'var(--hover-bg)' : '#10b981',
-                          color: (!verificationEmail || !verificationName || isCreatingSender) ? 'var(--text-tertiary)' : 'white',
-                          cursor: (!verificationEmail || !verificationName || isCreatingSender) ? 'not-allowed' : 'pointer',
-                          opacity: (!verificationEmail || !verificationName || isCreatingSender) ? 0.5 : 1,
+                          backgroundColor: (!verificationEmail?.trim() || !verificationName?.trim() || isCreatingSender) ? 'var(--hover-bg)' : '#10b981',
+                          color: (!verificationEmail?.trim() || !verificationName?.trim() || isCreatingSender) ? 'var(--text-tertiary)' : 'white',
+                          cursor: (!verificationEmail?.trim() || !verificationName?.trim() || isCreatingSender) ? 'not-allowed' : 'pointer',
+                          opacity: (!verificationEmail?.trim() || !verificationName?.trim() || isCreatingSender) ? 0.5 : 1,
                         }}
                       >
                         {isCreatingSender ? (
@@ -586,6 +919,12 @@ export default function PreventionPage() {
                           type="text"
                           value={otp}
                           onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          onFocus={() => {
+                            // Ensure step 1 is expanded when user focuses on OTP input
+                            if (collapsedSteps[1]) {
+                              setCollapsedSteps(prev => ({ ...prev, 1: false }))
+                            }
+                          }}
                           placeholder="000000"
                           maxLength={6}
                           className="w-full px-4 py-2 rounded-lg border-2 text-sm font-mono text-center text-2xl tracking-widest"
@@ -630,6 +969,8 @@ export default function PreventionPage() {
 
               </>
             ) : null}
+            </>
+            )}
 
             {verificationError && (
               <div className="p-3 rounded-lg mt-4" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444' }}>
@@ -641,9 +982,9 @@ export default function PreventionPage() {
           </div>
 
           {/* Step 2: DNS Setup */}
-          {currentStep >= 1 && (
-            <div className="p-6 rounded-lg border-2" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-strong)' }}>
-              <div className="flex items-center gap-2 mb-4">
+          <div className="p-6 rounded-lg border-2" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-strong)' }}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
                     currentStep >= 2 ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
@@ -655,7 +996,26 @@ export default function PreventionPage() {
                   Domain Set Up
                 </h2>
               </div>
+              <button
+                type="button"
+                onClick={() => toggleStepCollapse(2)}
+                className="p-1 rounded transition-all"
+                style={{ color: 'var(--text-tertiary)' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                  e.currentTarget.style.color = 'var(--text-primary)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent'
+                  e.currentTarget.style.color = 'var(--text-tertiary)'
+                }}
+              >
+                {collapsedSteps[2] ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+              </button>
+            </div>
 
+            {!collapsedSteps[2] && (
+              <>
               <p className="text-sm mb-4" style={{ color: 'var(--text-tertiary)' }}>
                 Configure your DNS records so that emails for account verification are sent from your verified domain.
               </p>
@@ -725,13 +1085,14 @@ export default function PreventionPage() {
                   )}
                 </div>
               )}
-            </div>
-          )}
+              </>
+            )}
+          </div>
 
           {/* Step 3: Configure Email */}
-          {currentStep >= 2 && (
-            <div className="p-6 rounded-lg border-2" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-strong)' }}>
-              <div className="flex items-center gap-2 mb-4">
+          <div className="p-6 rounded-lg border-2" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-strong)' }}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
                     currentStep >= 3 ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
@@ -743,7 +1104,26 @@ export default function PreventionPage() {
                   Configure Email
                 </h2>
               </div>
+              <button
+                type="button"
+                onClick={() => toggleStepCollapse(3)}
+                className="p-1 rounded transition-all"
+                style={{ color: 'var(--text-tertiary)' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                  e.currentTarget.style.color = 'var(--text-primary)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent'
+                  e.currentTarget.style.color = 'var(--text-tertiary)'
+                }}
+              >
+                {collapsedSteps[3] ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+              </button>
+            </div>
 
+            {!collapsedSteps[3] && (
+              <>
               <p className="text-sm mb-4" style={{ color: 'var(--text-tertiary)' }}>
                 Customize the email template that gets sent out for account verification.
               </p>
@@ -802,8 +1182,9 @@ export default function PreventionPage() {
                   )}
                 </div>
               )}
-            </div>
-          )}
+              </>
+            )}
+          </div>
 
           {loading && (
             <div className="p-6 rounded-lg border-2 text-center" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-strong)' }}>
@@ -828,20 +1209,20 @@ export default function PreventionPage() {
                 Are you sure you want to update the verification email? This will require you to verify the new email address with a 6-digit code.
               </p>
               <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleUpdateSender}
-                  disabled={isUpdatingSender}
-                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex-1"
-                  style={{
-                    backgroundColor: isUpdatingSender ? 'var(--hover-bg)' : '#10b981',
-                    color: isUpdatingSender ? 'var(--text-tertiary)' : 'white',
-                    cursor: isUpdatingSender ? 'not-allowed' : 'pointer',
-                    opacity: isUpdatingSender ? 0.5 : 1,
-                  }}
-                >
-                  {isUpdatingSender ? 'Updating...' : 'Confirm'}
-                </button>
+              <button
+                type="button"
+                onClick={handleCreateUpdateSender}
+                disabled={isUpdatingSender}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex-1"
+                style={{
+                  backgroundColor: isUpdatingSender ? 'var(--hover-bg)' : '#10b981',
+                  color: isUpdatingSender ? 'var(--text-tertiary)' : 'white',
+                  cursor: isUpdatingSender ? 'not-allowed' : 'pointer',
+                  opacity: isUpdatingSender ? 0.5 : 1,
+                }}
+              >
+                {isUpdatingSender ? 'Creating Sender...' : 'Confirm'}
+              </button>
                 <button
                   type="button"
                   onClick={() => setShowConfirmDialog(false)}

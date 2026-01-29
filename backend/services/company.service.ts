@@ -74,3 +74,43 @@ export async function createCompany(
     return { company: null, error: err.message || 'An unexpected error occurred' }
   }
 }
+
+/**
+ * Update company name
+ * @param supabaseClient - Authenticated Supabase client (with user session)
+ * @param companyId - Company ID to update
+ * @param name - New company name
+ */
+export async function updateCompany(
+  supabaseClient: SupabaseClient,
+  companyId: string,
+  name: string
+): Promise<{ company: Company | null; error?: string }> {
+  try {
+    const { data: updatedCompany, error: updateError } = await supabaseClient
+      .from('companies')
+      .update({ name: name.trim(), updated_at: new Date().toISOString() })
+      .eq('id', companyId)
+      .select('id, name, created_at, updated_at')
+      .single()
+
+    if (updateError || !updatedCompany) {
+      console.error('Error updating company:', {
+        error: updateError,
+        code: updateError?.code,
+        message: updateError?.message,
+        companyId,
+        name: name.trim()
+      })
+      return {
+        company: null,
+        error: updateError?.message || 'Failed to update company'
+      }
+    }
+
+    return { company: updatedCompany }
+  } catch (err: any) {
+    console.error('Unexpected error updating company:', err)
+    return { company: null, error: err.message || 'An unexpected error occurred' }
+  }
+}

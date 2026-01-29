@@ -50,6 +50,9 @@ export default function CompanyPage() {
   const [editCompanyRole, setEditCompanyRole] = useState<'admin' | 'member'>('member')
   const [isUpdating, setIsUpdating] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [isEditingCompanyName, setIsEditingCompanyName] = useState(false)
+  const [editCompanyName, setEditCompanyName] = useState('')
+  const [isUpdatingCompanyName, setIsUpdatingCompanyName] = useState(false)
 
   // Check if user is a company admin
   const isCompanyAdmin = user?.companyId && company && 
@@ -386,6 +389,60 @@ export default function CompanyPage() {
     }
   }
 
+  const handleStartEditCompanyName = () => {
+    if (company) {
+      setEditCompanyName(company.name)
+      setIsEditingCompanyName(true)
+    }
+  }
+
+  const handleCancelEditCompanyName = () => {
+    setIsEditingCompanyName(false)
+    setEditCompanyName('')
+  }
+
+  const handleUpdateCompanyName = async () => {
+    if (!company || !editCompanyName.trim() || editCompanyName.trim() === company.name) {
+      handleCancelEditCompanyName()
+      return
+    }
+
+    setIsUpdatingCompanyName(true)
+    try {
+      const sessionToken = localStorage.getItem('sb-access-token')
+      if (!sessionToken) {
+        alert('Not authenticated. Please sign in again.')
+        return
+      }
+
+      const response = await fetch(`/api/companies/${company.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ name: editCompanyName.trim() }),
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.company) {
+        setCompany(data.company)
+        setIsEditingCompanyName(false)
+        setEditCompanyName('')
+        // Refresh user to get updated company name
+        await refreshUser()
+      } else {
+        alert(data.error || 'Failed to update company name')
+      }
+    } catch (error) {
+      console.error('Error updating company name:', error)
+      alert('An error occurred while updating the company name')
+    } finally {
+      setIsUpdatingCompanyName(false)
+    }
+  }
+
 
   // Skeleton loader component
   const SkeletonLoader = () => (
@@ -660,19 +717,89 @@ export default function CompanyPage() {
                 >
                   <Building2 className="w-6 h-6" style={{ color: 'var(--text-primary)' }} />
                 </div>
-                <div>
-                  <h2 
-                    className="text-xl font-semibold"
-                    style={{ color: 'var(--text-primary)' }}
-                  >
-                    {company.name}
-                  </h2>
+                <div className="flex-1">
+                  {isEditingCompanyName ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={editCompanyName}
+                        onChange={(e) => setEditCompanyName(e.target.value)}
+                        className="px-3 py-1 rounded-lg border-2 text-xl font-semibold"
+                        style={{
+                          backgroundColor: 'var(--input-bg, var(--card-bg))',
+                          borderColor: 'var(--border-strong)',
+                          color: 'var(--text-primary)',
+                          flex: 1
+                        }}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleUpdateCompanyName()
+                          } else if (e.key === 'Escape') {
+                            handleCancelEditCompanyName()
+                          }
+                        }}
+                      />
+                      <button
+                        onClick={handleUpdateCompanyName}
+                        disabled={!editCompanyName.trim() || isUpdatingCompanyName}
+                        className="px-3 py-1 rounded-lg transition-all text-sm"
+                        style={{
+                          backgroundColor: '#10b981',
+                          color: 'white',
+                          opacity: (!editCompanyName.trim() || isUpdatingCompanyName) ? 0.5 : 1
+                        }}
+                      >
+                        {isUpdatingCompanyName ? 'Saving...' : 'Save'}
+                      </button>
+                      <button
+                        onClick={handleCancelEditCompanyName}
+                        disabled={isUpdatingCompanyName}
+                        className="px-3 py-1 rounded-lg transition-all text-sm"
+                        style={{
+                          backgroundColor: 'var(--hover-bg)',
+                          borderColor: 'var(--border-strong)',
+                          color: 'var(--text-primary)',
+                          border: '1px solid var(--border-strong)'
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <h2 
+                        className="text-xl font-semibold"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
+                        {company.name}
+                      </h2>
+                      {isCompanyAdmin && (
+                        <button
+                          onClick={handleStartEditCompanyName}
+                          className="p-1 rounded transition-all"
+                          style={{ color: 'var(--text-tertiary)' }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                            e.currentTarget.style.color = 'var(--text-primary)'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent'
+                            e.currentTarget.style.color = 'var(--text-tertiary)'
+                          }}
+                          title="Edit company name"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                   <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
                     Company ID: {company.id}
                   </p>
                 </div>
               </div>
-              {isCompanyAdmin && (
+              {isCompanyAdmin && !isEditingCompanyName && (
                 <button
                   onClick={handleDeleteCompany}
                   disabled={isDeleting}

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest, hasCompanyAccess, isCompanyAdmin } from '@backend/lib/auth-helper'
-import { getApiKey, generateApiKey } from '@backend/services/api-key.service'
+import { updateCompany } from '@backend/services/company.service'
 
 /**
- * GET /api/companies/[companyId]/api-key
- * Get the company's API key (if it exists)
+ * GET /api/companies/[companyId]
+ * Get company details
  */
 export async function GET(
   request: NextRequest,
@@ -22,30 +22,36 @@ export async function GET(
       )
     }
 
+    const { user } = authResult
+
     // Check company access
-    if (!hasCompanyAccess(authResult.user.profile, companyId)) {
+    if (!hasCompanyAccess(user.profile, companyId)) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 403 }
       )
     }
 
-    // Get API key using service
-    const { data: apiKeyRecord, error } = await getApiKey(companyId)
+    // Use the authenticated Supabase client from auth helper
+    const { data: company, error } = await user.supabase
+      .from('companies')
+      .select('*')
+      .eq('id', companyId)
+      .single()
 
     if (error) {
       return NextResponse.json(
-        { success: false, error },
-        { status: 500 }
+        { success: false, error: error.message || 'Company not found' },
+        { status: 404 }
       )
     }
 
     return NextResponse.json({
       success: true,
-      data: apiKeyRecord ? { apiKey: apiKeyRecord.api_key } : null
+      company
     })
   } catch (error: any) {
-    console.error('Error in GET /api/companies/[companyId]/api-key:', error)
+    console.error('Error in GET /api/companies/[companyId]:', error)
     return NextResponse.json(
       { success: false, error: error.message || 'Internal server error' },
       { status: 500 }
@@ -54,15 +60,24 @@ export async function GET(
 }
 
 /**
- * POST /api/companies/[companyId]/api-key
- * Generate a new API key for the company (only if one doesn't exist)
+ * PATCH /api/companies/[companyId]
+ * Update company (only company admins can update)
  */
-export async function POST(
+export async function PATCH(
   request: NextRequest,
   { params }: { params: { companyId: string } }
 ) {
   try {
     const { companyId } = params
+    const body = await request.json()
+    const { name } = body
+
+    if (!name || !name.trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Company name is required' },
+        { status: 400 }
+      )
+    }
 
     // Authenticate request
     const authResult = await authenticateRequest(request)
@@ -73,37 +88,33 @@ export async function POST(
       )
     }
 
+    const { user } = authResult
+
     // Check company access and admin role
-    if (!hasCompanyAccess(authResult.user.profile, companyId) || !isCompanyAdmin(authResult.user.profile)) {
+    if (!hasCompanyAccess(user.profile, companyId) || !isCompanyAdmin(user.profile)) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized - Admin access required' },
         { status: 403 }
       )
     }
 
-    // Generate API key using service
-    const { data: newKey, error } = await generateApiKey(companyId)
+    // Use the authenticated Supabase client from auth helper
+    // Update company using service
+    const { company, error: updateError } = await updateCompany(user.supabase, companyId, name)
 
-    if (error) {
+    if (updateError || !company) {
       return NextResponse.json(
-        { success: false, error },
-        { status: error.includes('already exists') ? 400 : 500 }
-      )
-    }
-
-    if (!newKey) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to generate API key' },
+        { success: false, error: updateError || 'Failed to update company' },
         { status: 500 }
       )
     }
 
     return NextResponse.json({
       success: true,
-      data: { apiKey: newKey.api_key }
+      company
     })
   } catch (error: any) {
-    console.error('Error in POST /api/companies/[companyId]/api-key:', error)
+    console.error('Error in PATCH /api/companies/[companyId]:', error)
     return NextResponse.json(
       { success: false, error: error.message || 'Internal server error' },
       { status: 500 }

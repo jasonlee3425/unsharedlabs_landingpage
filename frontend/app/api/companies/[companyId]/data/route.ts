@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { authenticateRequest, hasCompanyAccess, isSuperAdmin } from '@backend/lib/auth-helper'
+import { getCompanyData, isOnboardingComplete } from '@backend/services/data.service'
 
 /**
  * GET /api/companies/[companyId]/data
@@ -10,57 +12,19 @@ export async function GET(
   { params }: { params: { companyId: string } }
 ) {
   try {
-    const authHeader = request.headers.get('authorization')
-    const sessionToken = authHeader?.replace('Bearer ', '') || 
-                        request.cookies.get('sb-access-token')?.value
-
-    if (!sessionToken) {
+    // Authenticate request
+    const authResult = await authenticateRequest(request)
+    if (!authResult.success) {
       return NextResponse.json(
-        { success: false, error: 'Not authenticated' },
-        { status: 401 }
+        { success: false, error: authResult.error },
+        { status: authResult.status }
       )
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
-    const supabaseServiceKey = process.env.SUPABASE_API_KEY
-    const supabaseKey = supabaseAnonKey || supabaseServiceKey
+    const { user } = authResult
 
-    if (!supabaseUrl || !supabaseKey) {
-      return NextResponse.json(
-        { success: false, error: 'Configuration error' },
-        { status: 500 }
-      )
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${sessionToken}`,
-        },
-      },
-    })
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid session' },
-        { status: 401 }
-      )
-    }
-
-    // Check if user has access to this company
-    const { data: userProfile } = await supabase
-      .from('user_profiles')
-      .select('company_id, role')
-      .eq('user_id', user.id)
-      .single()
-
-    const isSuperAdmin = userProfile?.role === 'super_admin'
-    const hasAccess = isSuperAdmin || userProfile?.company_id === params.companyId
-
-    if (!hasAccess) {
+    // Check company access (super admins can access any company)
+    if (!isSuperAdmin(user.profile) && !hasCompanyAccess(user.profile, params.companyId)) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized - You do not have access to this company' },
         { status: 403 }
@@ -68,16 +32,9 @@ export async function GET(
     }
 
     // Require completed onboarding before returning dashboard data (super admins bypass)
-    if (!isSuperAdmin) {
-      const { data: onboardingRow, error: onboardingError } = await supabase
-        .from('company_onboarding')
-        .select('completed')
-        .eq('company_id', params.companyId)
-        .single()
-
-      // If no onboarding row exists yet or it's incomplete, block dashboard data
-      const onboardingComplete = onboardingRow?.completed === true
-      if (onboardingError?.code === 'PGRST116' || !onboardingComplete) {
+    if (!isSuperAdmin(user.profile)) {
+      const onboardingComplete = await isOnboardingComplete(params.companyId)
+      if (!onboardingComplete) {
         return NextResponse.json(
           { success: false, error: 'Onboarding incomplete. Please complete onboarding to view dashboard data.' },
           { status: 403 }
@@ -85,24 +42,21 @@ export async function GET(
       }
     }
 
-    // Get current company data
-    const { data: companyData, error: dataError } = await supabase
-      .from('company_data')
-      .select('id, data, version, created_at, updated_at')
-      .eq('company_id', params.companyId)
-      .single()
+    // Get current company data using service
+    const { data: companyData, error: dataError } = await getCompanyData(params.companyId)
 
     if (dataError) {
-      if (dataError.code === 'PGRST116') {
-        // No data found
-        return NextResponse.json(
-          { success: true, data: null, message: 'No data available for this company' },
-          { status: 200 }
-        )
-      }
       return NextResponse.json(
-        { success: false, error: dataError.message || 'Failed to fetch company data' },
+        { success: false, error: dataError },
         { status: 500 }
+      )
+    }
+
+    if (!companyData) {
+      // No data found
+      return NextResponse.json(
+        { success: true, data: null, message: 'No data available for this company' },
+        { status: 200 }
       )
     }
 

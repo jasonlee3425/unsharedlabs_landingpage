@@ -50,6 +50,7 @@ export interface UserProfile {
   email: string
   role: UserRole
   company_id: string | null
+  company_role?: 'admin' | 'member' | null
   created_at: string
   updated_at: string
 }
