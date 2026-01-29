@@ -337,7 +337,7 @@ export async function POST(
       console.log('✅ Domain setup successful:', {
         domain: domain.trim(),
         domainId,
-        hasDnsRecords: !!dnsRecords
+        hasDnsRecords: !!allDnsRecords
       })
 
       return NextResponse.json({

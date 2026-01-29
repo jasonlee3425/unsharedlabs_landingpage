@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { Building2, UserPlus, Users, Mail, User, X, Trash2, Shield, Edit2 } from 'lucide-react'
+import { Building2, UserPlus, Users, Mail, User, X, Trash2, Shield, Edit2, Upload, Image as ImageIcon } from 'lucide-react'
 import DashboardLayout from '@/components/DashboardLayout'
 
 interface TeamMember {
@@ -18,6 +18,7 @@ interface TeamMember {
 interface Company {
   id: string
   name: string
+  logo_url?: string | null
   created_at: string
 }
 
@@ -53,6 +54,10 @@ export default function CompanyPage() {
   const [isEditingCompanyName, setIsEditingCompanyName] = useState(false)
   const [editCompanyName, setEditCompanyName] = useState('')
   const [isUpdatingCompanyName, setIsUpdatingCompanyName] = useState(false)
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false)
+  const [isDeletingLogo, setIsDeletingLogo] = useState(false)
+  const [logoError, setLogoError] = useState<string | null>(null)
+  const [isDraggingOver, setIsDraggingOver] = useState(false)
 
   // Check if user is a company admin
   const isCompanyAdmin = user?.companyId && company && 
@@ -443,6 +448,103 @@ export default function CompanyPage() {
     }
   }
 
+  const handleLogoUpload = async (file: File) => {
+    if (!company) return
+
+    // Validate file size (1MB)
+    if (file.size > 1024 * 1024) {
+      setLogoError('File size exceeds 1MB limit')
+      setTimeout(() => setLogoError(null), 5000)
+      return
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/png', 'image/svg+xml', 'image/jpeg', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      setLogoError('Invalid file type. Allowed types: PNG, SVG, JPEG, WebP')
+      setTimeout(() => setLogoError(null), 5000)
+      return
+    }
+
+    setIsUploadingLogo(true)
+    setLogoError(null)
+
+    try {
+      const sessionToken = localStorage.getItem('sb-access-token')
+      if (!sessionToken) {
+        setLogoError('Not authenticated')
+        return
+      }
+
+      const formData = new FormData()
+      formData.append('logo', file)
+
+      const response = await fetch(`/api/companies/${company.id}/logo`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sessionToken}`,
+        },
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.company) {
+        setCompany(data.company)
+      } else {
+        setLogoError(data.error || 'Failed to upload logo')
+        setTimeout(() => setLogoError(null), 5000)
+      }
+    } catch (error) {
+      console.error('Error uploading logo:', error)
+      setLogoError('An error occurred while uploading the logo')
+      setTimeout(() => setLogoError(null), 5000)
+    } finally {
+      setIsUploadingLogo(false)
+    }
+  }
+
+  const handleDeleteLogo = async () => {
+    if (!company || !company.logo_url) return
+
+    if (!confirm('Are you sure you want to delete the company logo?')) {
+      return
+    }
+
+    setIsDeletingLogo(true)
+    setLogoError(null)
+
+    try {
+      const sessionToken = localStorage.getItem('sb-access-token')
+      if (!sessionToken) {
+        setLogoError('Not authenticated')
+        return
+      }
+
+      const response = await fetch(`/api/companies/${company.id}/logo`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${sessionToken}`,
+        },
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.company) {
+        setCompany(data.company)
+      } else {
+        setLogoError(data.error || 'Failed to delete logo')
+        setTimeout(() => setLogoError(null), 5000)
+      }
+    } catch (error) {
+      console.error('Error deleting logo:', error)
+      setLogoError('An error occurred while deleting the logo')
+      setTimeout(() => setLogoError(null), 5000)
+    } finally {
+      setIsDeletingLogo(false)
+    }
+  }
+
 
   // Skeleton loader component
   const SkeletonLoader = () => (
@@ -711,11 +813,24 @@ export default function CompanyPage() {
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div 
-                  className="w-12 h-12 rounded-lg flex items-center justify-center"
-                  style={{ backgroundColor: 'var(--active-bg)' }}
-                >
-                  <Building2 className="w-6 h-6" style={{ color: 'var(--text-primary)' }} />
+                <div className="relative">
+                  <div 
+                    className="w-16 h-16 rounded-lg flex items-center justify-center overflow-hidden border-2"
+                    style={{ 
+                      backgroundColor: 'var(--active-bg)',
+                      borderColor: 'var(--border-strong)'
+                    }}
+                  >
+                    {company.logo_url ? (
+                      <img 
+                        src={company.logo_url} 
+                        alt={`${company.name} logo`}
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <Building2 className="w-8 h-8" style={{ color: 'var(--text-tertiary)' }} />
+                    )}
+                  </div>
                 </div>
                 <div className="flex-1">
                   {isEditingCompanyName ? (
@@ -797,6 +912,11 @@ export default function CompanyPage() {
                   <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
                     Company ID: {company.id}
                   </p>
+                  {logoError && (
+                    <div className="mt-2 p-2 rounded text-xs" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444' }}>
+                      <p style={{ color: '#ef4444' }}>{logoError}</p>
+                    </div>
+                  )}
                 </div>
               </div>
               {isCompanyAdmin && !isEditingCompanyName && (
@@ -831,6 +951,132 @@ export default function CompanyPage() {
               <span>•</span>
               <span>{teamMembers.length} {teamMembers.length === 1 ? 'member' : 'members'}</span>
             </div>
+
+            {/* Logo Upload Section - Admin Only */}
+            {isCompanyAdmin && (
+              <div className="mt-6 pt-6 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
+                  Company Logo
+                </h3>
+                <div
+                  className={`relative border-2 border-dashed rounded-lg p-6 transition-all ${
+                    isDraggingOver ? 'border-blue-500 bg-blue-50/10' : 'border-gray-300'
+                  }`}
+                  style={{
+                    borderColor: isDraggingOver ? '#3b82f6' : 'var(--border-strong)',
+                    backgroundColor: isDraggingOver ? 'rgba(59, 130, 246, 0.05)' : 'transparent'
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    setIsDraggingOver(true)
+                  }}
+                  onDragLeave={() => setIsDraggingOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    setIsDraggingOver(false)
+                    const file = e.dataTransfer.files[0]
+                    if (file) {
+                      handleLogoUpload(file)
+                    }
+                  }}
+                >
+                  {company.logo_url ? (
+                    <div className="flex items-center gap-4">
+                      <div className="w-20 h-20 rounded-lg overflow-hidden border-2" style={{ borderColor: 'var(--border-strong)' }}>
+                        <img 
+                          src={company.logo_url} 
+                          alt={`${company.name} logo`}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm mb-2" style={{ color: 'var(--text-primary)' }}>
+                          Logo uploaded successfully
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <label
+                            className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer"
+                            style={{ backgroundColor: '#10b981', color: 'white' }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#059669'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = '#10b981'
+                            }}
+                          >
+                            <input
+                              type="file"
+                              accept="image/png,image/svg+xml,image/jpeg,image/webp"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0]
+                                if (file) {
+                                  handleLogoUpload(file)
+                                }
+                                e.target.value = ''
+                              }}
+                              disabled={isUploadingLogo}
+                              className="hidden"
+                            />
+                            {isUploadingLogo ? 'Uploading...' : 'Change Logo'}
+                          </label>
+                          <button
+                            onClick={handleDeleteLogo}
+                            disabled={isDeletingLogo}
+                            className="px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
+                            style={{
+                              backgroundColor: isDeletingLogo ? 'var(--hover-bg)' : 'rgba(239, 68, 68, 0.1)',
+                              color: isDeletingLogo ? 'var(--text-tertiary)' : '#ef4444',
+                              border: '1px solid #ef4444'
+                            }}
+                          >
+                            {isDeletingLogo ? 'Deleting...' : 'Remove'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <ImageIcon className="w-12 h-12 mx-auto mb-3" style={{ color: 'var(--text-tertiary)' }} />
+                      <p className="text-sm mb-3" style={{ color: 'var(--text-primary)' }}>
+                        Upload a company logo
+                      </p>
+                      <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>
+                        Drag and drop an image here, or click to browse
+                      </p>
+                      <label
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer"
+                        style={{ backgroundColor: '#10b981', color: 'white' }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#059669'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#10b981'
+                        }}
+                      >
+                        <Upload className="w-4 h-4" />
+                        <input
+                          type="file"
+                          accept="image/png,image/svg+xml,image/jpeg,image/webp"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) {
+                              handleLogoUpload(file)
+                            }
+                            e.target.value = ''
+                          }}
+                          disabled={isUploadingLogo}
+                          className="hidden"
+                        />
+                        {isUploadingLogo ? 'Uploading...' : 'Choose File'}
+                      </label>
+                      <p className="text-xs mt-3" style={{ color: 'var(--text-tertiary)' }}>
+                        PNG, SVG, JPEG, or WebP (max 1MB)
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         ) : !isLoading && !showCreateCompany && (
           <div 

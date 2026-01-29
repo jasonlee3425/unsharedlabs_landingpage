@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import DashboardLayout from '@/components/DashboardLayout'
 import { useAuth } from '@/lib/auth-context'
 import { getSessionToken } from '@/lib/auth'
-import { Shield, Mail, Clock, CheckCircle, AlertTriangle, Edit, Globe, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { Shield, Mail, Clock, CheckCircle, AlertTriangle, Edit, Globe, X, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react'
 
 interface PreventionSteps {
   step1: boolean
@@ -68,6 +68,77 @@ export default function PreventionPage() {
     authenticated: boolean
     dns_records: any
   } | null>(null)
+  const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [showEditDomainModal, setShowEditDomainModal] = useState(false)
+  const [newDomain, setNewDomain] = useState('')
+  const [confirmOldDomain, setConfirmOldDomain] = useState('')
+  const [isUpdatingDomain, setIsUpdatingDomain] = useState(false)
+
+  // Copy to clipboard function
+  const copyToClipboard = async (text: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedField(field)
+      setTimeout(() => setCopiedField(null), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }
+
+  // Handle domain update
+  const handleUpdateDomain = async () => {
+    if (!companyId || !verificationSettings?.domain) return
+    const token = getSessionToken()
+    if (!token) return
+
+    // Validate that old domain matches
+    if (confirmOldDomain !== verificationSettings.domain) {
+      setDomainError('Old domain does not match. Please retype the current domain correctly.')
+      setTimeout(() => setDomainError(null), 8000)
+      return
+    }
+
+    // Validate new domain format
+    const domainRegex = /^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$/i
+    if (!domainRegex.test(newDomain.trim())) {
+      setDomainError('Invalid domain format')
+      setTimeout(() => setDomainError(null), 8000)
+      return
+    }
+
+    setIsUpdatingDomain(true)
+    setDomainError(null)
+
+    try {
+      const res = await fetch(`/api/companies/${companyId}/verification/domain`, {
+        method: 'POST',
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ domain: newDomain.trim() })
+      })
+      const json = await res.json()
+      if (json?.success) {
+        // Close modal and refresh settings
+        setShowEditDomainModal(false)
+        setNewDomain('')
+        setConfirmOldDomain('')
+        setDomainDnsRecords(null)
+        setDomainValidationResult(null)
+        await fetchVerificationSettings()
+      } else {
+        setDomainError(json?.error || 'Failed to update domain')
+        setTimeout(() => setDomainError(null), 8000)
+      }
+    } catch (e: any) {
+      console.error('Failed to update domain:', e)
+      setDomainError(e.message || 'Failed to update domain')
+      setTimeout(() => setDomainError(null), 8000)
+    } finally {
+      setIsUpdatingDomain(false)
+    }
+  }
 
   // Fetch verification settings on load
   useEffect(() => {
@@ -1250,9 +1321,26 @@ export default function PreventionPage() {
                       <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#eab308' }} />
                     )}
                     <div className="flex-1">
-                      <h3 className="text-sm font-semibold mb-2" style={{ color: domainValidationResult?.authenticated ? '#10b981' : '#eab308' }}>
-                        {domainValidationResult?.authenticated ? 'Domain Configured' : 'Domain Configuration in Progress'}
-                      </h3>
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-semibold" style={{ color: domainValidationResult?.authenticated ? '#10b981' : '#eab308' }}>
+                          {domainValidationResult?.authenticated ? 'Domain Configured' : 'Domain Configuration in Progress'}
+                        </h3>
+                        {user?.companyRole === 'admin' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowEditDomainModal(true)
+                              setNewDomain('')
+                              setConfirmOldDomain('')
+                            }}
+                            className="p-1.5 rounded transition-all hover:bg-white/10"
+                            style={{ color: 'var(--text-tertiary)' }}
+                            title="Edit domain"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                       <div className="space-y-1 text-sm">
                         <p style={{ color: 'var(--text-primary)' }}>
                           <span className="font-medium">Domain:</span> {verificationSettings.domain}
@@ -1296,94 +1384,269 @@ export default function PreventionPage() {
                       </p>
                       <div className="space-y-3">
                         {/* Record 1: Brevo Code TXT (from Brevo POST) */}
-                        {(domainDnsRecords?.brevo_code || domainValidationResult?.dns_records?.brevo_code) && (
-                          <div className="p-3 rounded bg-black/20">
-                            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-                              Record 1: Brevo Code TXT Record
-                            </p>
-                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                              Type: {(domainDnsRecords?.brevo_code || domainValidationResult?.dns_records?.brevo_code)?.type || 'TXT'}
-                            </p>
-                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                              Name: {(domainDnsRecords?.brevo_code || domainValidationResult?.dns_records?.brevo_code)?.host_name || '@'}
-                            </p>
-                            <p className="text-sm font-mono break-all mb-2" style={{ color: 'var(--text-primary)' }}>
-                              Value: {(domainDnsRecords?.brevo_code || domainValidationResult?.dns_records?.brevo_code)?.value}
-                            </p>
-                          </div>
-                        )}
+                        {(domainDnsRecords?.brevo_code || domainValidationResult?.dns_records?.brevo_code) && (() => {
+                          const record = domainDnsRecords?.brevo_code || domainValidationResult?.dns_records?.brevo_code
+                          const name = record?.host_name || '@'
+                          const value = record?.value || ''
+                          return (
+                            <div className="p-3 rounded bg-black/20">
+                              <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                                Record 1: Brevo Code TXT Record
+                              </p>
+                              <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                                Type: {record?.type || 'TXT'}
+                              </p>
+                              <div className="flex items-center gap-1 mb-1">
+                                <p className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                                  Name: {name}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(name, 'brevo-code-name')}
+                                  className="p-0.5 rounded transition-all hover:bg-white/10"
+                                  title="Copy name"
+                                >
+                                  {copiedField === 'brevo-code-name' ? (
+                                    <Check className="w-3 h-3" style={{ color: '#10b981' }} />
+                                  ) : (
+                                    <Copy className="w-3 h-3" style={{ color: '#3b82f6' }} />
+                                  )}
+                                </button>
+                              </div>
+                              <div 
+                                className="flex items-center gap-1 mb-2 group"
+                              >
+                                <p className="text-sm font-mono break-all flex-1" style={{ color: 'var(--text-primary)' }}>
+                                  Value: {value}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(value, 'brevo-code-value')}
+                                  className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-white/10"
+                                  title="Copy value"
+                                >
+                                  {copiedField === 'brevo-code-value' ? (
+                                    <Check className="w-3 h-3" style={{ color: '#10b981' }} />
+                                  ) : (
+                                    <Copy className="w-3 h-3" style={{ color: '#3b82f6' }} />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })()}
 
                         {/* Record 2: DKIM TXT (from Brevo POST) */}
-                        {(domainDnsRecords?.dkim_txt || domainValidationResult?.dns_records?.dkim_record) && (
-                          <div className="p-3 rounded bg-black/20">
-                            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-                              Record 2: DKIM TXT Record
-                            </p>
-                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                              Type: {(domainDnsRecords?.dkim_txt || domainValidationResult?.dns_records?.dkim_record)?.type || 'TXT'}
-                            </p>
-                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                              Name: {(domainDnsRecords?.dkim_txt || domainValidationResult?.dns_records?.dkim_record)?.host_name || 'mail._domainkey'}
-                            </p>
-                            <p className="text-sm font-mono break-all mb-2" style={{ color: 'var(--text-primary)' }}>
-                              Value: {(domainDnsRecords?.dkim_txt || domainValidationResult?.dns_records?.dkim_record)?.value}
-                            </p>
-                          </div>
-                        )}
+                        {(domainDnsRecords?.dkim_txt || domainValidationResult?.dns_records?.dkim_record) && (() => {
+                          const record = domainDnsRecords?.dkim_txt || domainValidationResult?.dns_records?.dkim_record
+                          const name = record?.host_name || 'mail._domainkey'
+                          const value = record?.value || ''
+                          return (
+                            <div className="p-3 rounded bg-black/20">
+                              <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                                Record 2: DKIM TXT Record
+                              </p>
+                              <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                                Type: {record?.type || 'TXT'}
+                              </p>
+                              <div className="flex items-center gap-1 mb-1">
+                                <p className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                                  Name: {name}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(name, 'dkim-txt-name')}
+                                  className="p-0.5 rounded transition-all hover:bg-white/10"
+                                  title="Copy name"
+                                >
+                                  {copiedField === 'dkim-txt-name' ? (
+                                    <Check className="w-3 h-3" style={{ color: '#10b981' }} />
+                                  ) : (
+                                    <Copy className="w-3 h-3" style={{ color: '#3b82f6' }} />
+                                  )}
+                                </button>
+                              </div>
+                              <div 
+                                className="flex items-center gap-1 mb-2 group"
+                              >
+                                <p className="text-sm font-mono break-all flex-1" style={{ color: 'var(--text-primary)' }}>
+                                  Value: {value}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(value, 'dkim-txt-value')}
+                                  className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-white/10"
+                                  title="Copy value"
+                                >
+                                  {copiedField === 'dkim-txt-value' ? (
+                                    <Check className="w-3 h-3" style={{ color: '#10b981' }} />
+                                  ) : (
+                                    <Copy className="w-3 h-3" style={{ color: '#3b82f6' }} />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })()}
 
                         {/* Record 3: DKIM 1 CNAME (constructed) */}
-                        {domainDnsRecords?.dkim1_cname && (
-                          <div className="p-3 rounded bg-black/20">
-                            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-                              Record 3: DKIM 1 CNAME Record
-                            </p>
-                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                              Type: {domainDnsRecords?.dkim1_cname?.type}
-                            </p>
-                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                              Name: {domainDnsRecords?.dkim1_cname?.name}
-                            </p>
-                            <p className="text-sm font-mono break-all mb-2" style={{ color: 'var(--text-primary)' }}>
-                              Value: {domainDnsRecords?.dkim1_cname?.value}
-                            </p>
-                          </div>
-                        )}
+                        {domainDnsRecords?.dkim1_cname && (() => {
+                          const record = domainDnsRecords.dkim1_cname
+                          const name = record?.name || ''
+                          const value = record?.value || ''
+                          return (
+                            <div className="p-3 rounded bg-black/20">
+                              <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                                Record 3: DKIM 1 CNAME Record
+                              </p>
+                              <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                                Type: {record?.type}
+                              </p>
+                              <div className="flex items-center gap-1 mb-1">
+                                <p className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                                  Name: {name}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(name, 'dkim1-cname-name')}
+                                  className="p-0.5 rounded transition-all hover:bg-white/10"
+                                  title="Copy name"
+                                >
+                                  {copiedField === 'dkim1-cname-name' ? (
+                                    <Check className="w-3 h-3" style={{ color: '#10b981' }} />
+                                  ) : (
+                                    <Copy className="w-3 h-3" style={{ color: '#3b82f6' }} />
+                                  )}
+                                </button>
+                              </div>
+                              <div 
+                                className="flex items-center gap-1 mb-2 group"
+                              >
+                                <p className="text-sm font-mono break-all flex-1" style={{ color: 'var(--text-primary)' }}>
+                                  Value: {value}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(value, 'dkim1-cname-value')}
+                                  className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-white/10"
+                                  title="Copy value"
+                                >
+                                  {copiedField === 'dkim1-cname-value' ? (
+                                    <Check className="w-3 h-3" style={{ color: '#10b981' }} />
+                                  ) : (
+                                    <Copy className="w-3 h-3" style={{ color: '#3b82f6' }} />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })()}
 
                         {/* Record 4: DKIM 2 CNAME (constructed) */}
-                        {domainDnsRecords?.dkim2_cname && (
-                          <div className="p-3 rounded bg-black/20">
-                            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-                              Record 4: DKIM 2 CNAME Record
-                            </p>
-                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                              Type: {domainDnsRecords?.dkim2_cname?.type}
-                            </p>
-                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                              Name: {domainDnsRecords?.dkim2_cname?.name}
-                            </p>
-                            <p className="text-sm font-mono break-all mb-2" style={{ color: 'var(--text-primary)' }}>
-                              Value: {domainDnsRecords?.dkim2_cname?.value}
-                            </p>
-                          </div>
-                        )}
+                        {domainDnsRecords?.dkim2_cname && (() => {
+                          const record = domainDnsRecords.dkim2_cname
+                          const name = record?.name || ''
+                          const value = record?.value || ''
+                          return (
+                            <div className="p-3 rounded bg-black/20">
+                              <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                                Record 4: DKIM 2 CNAME Record
+                              </p>
+                              <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                                Type: {record?.type}
+                              </p>
+                              <div className="flex items-center gap-1 mb-1">
+                                <p className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                                  Name: {name}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(name, 'dkim2-cname-name')}
+                                  className="p-0.5 rounded transition-all hover:bg-white/10"
+                                  title="Copy name"
+                                >
+                                  {copiedField === 'dkim2-cname-name' ? (
+                                    <Check className="w-3 h-3" style={{ color: '#10b981' }} />
+                                  ) : (
+                                    <Copy className="w-3 h-3" style={{ color: '#3b82f6' }} />
+                                  )}
+                                </button>
+                              </div>
+                              <div 
+                                className="flex items-center gap-1 mb-2 group"
+                              >
+                                <p className="text-sm font-mono break-all flex-1" style={{ color: 'var(--text-primary)' }}>
+                                  Value: {value}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(value, 'dkim2-cname-value')}
+                                  className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-white/10"
+                                  title="Copy value"
+                                >
+                                  {copiedField === 'dkim2-cname-value' ? (
+                                    <Check className="w-3 h-3" style={{ color: '#10b981' }} />
+                                  ) : (
+                                    <Copy className="w-3 h-3" style={{ color: '#3b82f6' }} />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })()}
 
                         {/* Record 5: DMARC TXT (constructed) */}
-                        {domainDnsRecords?.dmarc_txt && (
-                          <div className="p-3 rounded bg-black/20">
-                            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-                              Record 5: DMARC TXT Record
-                            </p>
-                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                              Type: {domainDnsRecords?.dmarc_txt?.type}
-                            </p>
-                            <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
-                              Name: {domainDnsRecords?.dmarc_txt?.name}
-                            </p>
-                            <p className="text-sm font-mono break-all mb-2" style={{ color: 'var(--text-primary)' }}>
-                              Value: {domainDnsRecords?.dmarc_txt?.value}
-                            </p>
-                          </div>
-                        )}
+                        {domainDnsRecords?.dmarc_txt && (() => {
+                          const record = domainDnsRecords.dmarc_txt
+                          const name = record?.name || ''
+                          const value = record?.value || ''
+                          return (
+                            <div className="p-3 rounded bg-black/20">
+                              <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                                Record 5: DMARC TXT Record
+                              </p>
+                              <p className="text-xs font-mono mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                                Type: {record?.type}
+                              </p>
+                              <div className="flex items-center gap-1 mb-1">
+                                <p className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                                  Name: {name}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(name, 'dmarc-txt-name')}
+                                  className="p-0.5 rounded transition-all hover:bg-white/10"
+                                  title="Copy name"
+                                >
+                                  {copiedField === 'dmarc-txt-name' ? (
+                                    <Check className="w-3 h-3" style={{ color: '#10b981' }} />
+                                  ) : (
+                                    <Copy className="w-3 h-3" style={{ color: '#3b82f6' }} />
+                                  )}
+                                </button>
+                              </div>
+                              <div 
+                                className="flex items-center gap-1 mb-2 group"
+                              >
+                                <p className="text-sm font-mono break-all flex-1" style={{ color: 'var(--text-primary)' }}>
+                                  Value: {value}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(value, 'dmarc-txt-value')}
+                                  className="p-0.5 rounded transition-all opacity-0 group-hover:opacity-100 hover:bg-white/10"
+                                  title="Copy value"
+                                >
+                                  {copiedField === 'dmarc-txt-value' ? (
+                                    <Check className="w-3 h-3" style={{ color: '#10b981' }} />
+                                  ) : (
+                                    <Copy className="w-3 h-3" style={{ color: '#3b82f6' }} />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })()}
 
                         {!domainDnsRecords && !domainValidationResult?.dns_records && verificationSettings?.domain && (
                           <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
@@ -1621,6 +1884,158 @@ export default function PreventionPage() {
                 >
                   Cancel
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Domain Modal */}
+        {showEditDomainModal && verificationSettings?.domain && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+            onClick={() => {
+              if (!isUpdatingDomain) {
+                setShowEditDomainModal(false)
+                setNewDomain('')
+                setConfirmOldDomain('')
+              }
+            }}
+          >
+            <div 
+              className="rounded-lg p-6 max-w-md w-full"
+              style={{ backgroundColor: 'var(--card-bg)', border: '1px solid var(--border-strong)' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  Change Domain
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isUpdatingDomain) {
+                      setShowEditDomainModal(false)
+                      setNewDomain('')
+                      setConfirmOldDomain('')
+                    }
+                  }}
+                  className="p-1 rounded transition-all hover:bg-white/10"
+                  style={{ color: 'var(--text-tertiary)' }}
+                  disabled={isUpdatingDomain}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="p-3 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444' }}>
+                  <p className="text-sm" style={{ color: '#ef4444' }}>
+                    <strong>Warning:</strong> Changing the domain will require you to update all DNS records. Please confirm by retyping the current domain below.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                    Current Domain
+                  </label>
+                  <p className="text-sm mb-2 font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                    {verificationSettings.domain}
+                  </p>
+                  <input
+                    type="text"
+                    value={confirmOldDomain}
+                    onChange={(e) => setConfirmOldDomain(e.target.value)}
+                    placeholder="Retype current domain to confirm"
+                    disabled={isUpdatingDomain}
+                    className="w-full px-3 py-2 rounded-lg text-sm"
+                    style={{
+                      backgroundColor: 'var(--code-bg)',
+                      borderColor: 'var(--border-strong)',
+                      color: 'var(--text-primary)',
+                      border: '1px solid var(--border-strong)'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                    New Domain
+                  </label>
+                  <input
+                    type="text"
+                    value={newDomain}
+                    onChange={(e) => setNewDomain(e.target.value)}
+                    placeholder="example.com"
+                    disabled={isUpdatingDomain}
+                    className="w-full px-3 py-2 rounded-lg text-sm"
+                    style={{
+                      backgroundColor: 'var(--code-bg)',
+                      borderColor: 'var(--border-strong)',
+                      color: 'var(--text-primary)',
+                      border: '1px solid var(--border-strong)'
+                    }}
+                  />
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                    The domain you want to authenticate (e.g., example.com)
+                  </p>
+                </div>
+
+                {domainError && (
+                  <div className="p-3 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444' }}>
+                    <p className="text-sm" style={{ color: '#ef4444' }}>
+                      {domainError}
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleUpdateDomain}
+                    disabled={!newDomain.trim() || !confirmOldDomain.trim() || isUpdatingDomain || confirmOldDomain !== verificationSettings.domain}
+                    className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 flex-1"
+                    style={{
+                      backgroundColor: (!newDomain.trim() || !confirmOldDomain.trim() || isUpdatingDomain || confirmOldDomain !== verificationSettings.domain) ? 'var(--hover-bg)' : '#ef4444',
+                      color: (!newDomain.trim() || !confirmOldDomain.trim() || isUpdatingDomain || confirmOldDomain !== verificationSettings.domain) ? 'var(--text-tertiary)' : 'white',
+                      cursor: (!newDomain.trim() || !confirmOldDomain.trim() || isUpdatingDomain || confirmOldDomain !== verificationSettings.domain) ? 'not-allowed' : 'pointer',
+                      opacity: (!newDomain.trim() || !confirmOldDomain.trim() || isUpdatingDomain || confirmOldDomain !== verificationSettings.domain) ? 0.5 : 1,
+                    }}
+                  >
+                    {isUpdatingDomain ? (
+                      <>
+                        <Clock className="w-4 h-4 animate-spin" />
+                        <span>Updating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Update Domain</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isUpdatingDomain) {
+                        setShowEditDomainModal(false)
+                        setNewDomain('')
+                        setConfirmOldDomain('')
+                        setDomainError(null)
+                      }
+                    }}
+                    disabled={isUpdatingDomain}
+                    className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                    style={{
+                      backgroundColor: 'var(--card-bg)',
+                      borderColor: 'var(--border-strong)',
+                      color: 'var(--text-primary)',
+                      border: '2px solid var(--border-strong)'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
           </div>
