@@ -10,6 +10,7 @@ interface User {
   role?: 'super_admin' | 'client'
   companyId?: string
   companyName?: string
+  companyRole?: 'admin' | 'member'
 }
 
 interface AuthContextType {

@@ -128,6 +128,7 @@ export async function GET(request: NextRequest) {
         role: profile.role,
         companyId: profile.company_id || undefined,
         companyName: company?.name || undefined,
+        companyRole: profile.company_role || undefined,
       },
     })
   } catch (error: any) {

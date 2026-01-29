@@ -23,7 +23,9 @@ import {
   AlertTriangle,
   CheckCircle,
   Building2,
-  Rocket
+  Rocket,
+  Home,
+  LogOut
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useTheme } from '@/lib/theme-context'
@@ -990,9 +992,32 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   style={{ borderColor: 'var(--border-strong)' }}
                 />
 
+                <Link
+                  href="/"
+                  className="w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors"
+                  style={{ color: 'var(--text-tertiary)' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                    e.currentTarget.style.color = 'var(--text-primary)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent'
+                    e.currentTarget.style.color = 'var(--text-tertiary)'
+                  }}
+                  onClick={() => setProfileMenuOpen(false)}
+                >
+                  <Home className="w-4 h-4" />
+                  <span>Landing Page</span>
+                </Link>
+
+                <div 
+                  className="border-b-2 my-1"
+                  style={{ borderColor: 'var(--border-strong)' }}
+                />
+
                 <button
                   onClick={handleSignOut}
-                  className="w-full text-left px-4 py-2 text-sm transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-2 text-sm transition-colors"
                   style={{ color: 'var(--text-tertiary)' }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
@@ -1003,7 +1028,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     e.currentTarget.style.color = 'var(--text-tertiary)'
                   }}
                 >
-                  Sign Out
+                  <LogOut className="w-4 h-4" />
+                  <span>Sign Out</span>
                 </button>
               </div>
             )}

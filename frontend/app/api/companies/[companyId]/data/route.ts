@@ -67,6 +67,24 @@ export async function GET(
       )
     }
 
+    // Require completed onboarding before returning dashboard data (super admins bypass)
+    if (!isSuperAdmin) {
+      const { data: onboardingRow, error: onboardingError } = await supabase
+        .from('company_onboarding')
+        .select('completed')
+        .eq('company_id', params.companyId)
+        .single()
+
+      // If no onboarding row exists yet or it's incomplete, block dashboard data
+      const onboardingComplete = onboardingRow?.completed === true
+      if (onboardingError?.code === 'PGRST116' || !onboardingComplete) {
+        return NextResponse.json(
+          { success: false, error: 'Onboarding incomplete. Please complete onboarding to view dashboard data.' },
+          { status: 403 }
+        )
+      }
+    }
+
     // Get current company data
     const { data: companyData, error: dataError } = await supabase
       .from('company_data')

@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { Loader2, Building2, Users, AlertTriangle, DollarSign, MapPin, BarChart3, TrendingUp, Activity, Search, ChevronDown, ChevronUp, Map, List, ZoomIn, ZoomOut, RotateCcw, X } from 'lucide-react'
+import { Loader2, Building2, Users, AlertTriangle, DollarSign, MapPin, BarChart3, TrendingUp, Activity, Search, ChevronDown, ChevronUp, Map, List, ZoomIn, ZoomOut, RotateCcw, X, Rocket } from 'lucide-react'
 import DashboardLayout from '@/components/DashboardLayout'
 import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps'
+import { getSessionToken } from '@/lib/auth'
 
 interface CompanyData {
   summary: {
@@ -64,6 +65,14 @@ export default function Dashboard() {
   const [companyData, setCompanyData] = useState<CompanyData | null>(null)
   const [dataLoading, setDataLoading] = useState(true)
   const [dataError, setDataError] = useState<string | null>(null)
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false)
+  const [onboardingProgress, setOnboardingProgress] = useState({ completed: 0, total: 5 })
+  const [onboardingState, setOnboardingState] = useState<any>(null)
+  const [hasNewIncompleteTechStack, setHasNewIncompleteTechStack] = useState(false)
+  const [newTechStacks, setNewTechStacks] = useState<string[]>([])
+  const [dismissedDashboardNotification, setDismissedDashboardNotification] = useState(false)
+  const [hasPreviouslyCompletedStacks, setHasPreviouslyCompletedStacks] = useState(false)
+  const [hasIncompleteOnboarding, setHasIncompleteOnboarding] = useState(false)
   const [flaggedAccountsSearch, setFlaggedAccountsSearch] = useState('')
   const [geographicSearch, setGeographicSearch] = useState('')
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
@@ -122,43 +131,93 @@ export default function Dashboard() {
   }, [user, isLoading, router])
 
   useEffect(() => {
-    if (!user?.companyId) return
+    if (isLoading) return
 
-    const fetchCompanyData = async () => {
+    // No company yet -> gate dashboard and stop loading
+    if (!user?.companyId) {
+      setOnboardingCompleted(false)
+      setDataLoading(false)
+      setCompanyData(null)
+      setDataError(null)
+      return
+    }
+
+    const fetchOnboardingAndMaybeData = async () => {
       try {
-        const sessionToken = localStorage.getItem('sb-access-token')
+        setDataLoading(true)
+        setDataError(null)
+        setCompanyData(null)
+
+        const sessionToken = getSessionToken()
         if (!sessionToken) {
+          setOnboardingCompleted(false)
+          setOnboardingProgress({ completed: 0, total: 5 })
           setDataError('Not authenticated')
-          setDataLoading(false)
           return
         }
 
-        const response = await fetch(`/api/companies/${user.companyId}/data`, {
-          headers: {
-            'Authorization': `Bearer ${sessionToken}`,
-          },
+        // 1) Fetch onboarding state
+        const onboardingRes = await fetch(`/api/companies/${user.companyId}/onboarding`, {
+          headers: { Authorization: `Bearer ${sessionToken}` },
         })
+        const onboardingJson = await onboardingRes.json()
 
-        const result = await response.json()
+        const state = onboardingJson?.state || {}
+        setOnboardingState(state)
+
+        // Node.js onboarding has 5 fixed steps: credentials, install, initialize, integrate, handle
+        const nodeSteps: Record<string, boolean> = state.nodejsSteps || {}
+        const completedCount = Object.values(nodeSteps).filter(Boolean).length
+        const totalCount = 5 // Fixed number of Node.js onboarding steps
+        setOnboardingProgress({ completed: completedCount, total: totalCount })
+        setOnboardingCompleted(Boolean(onboardingJson?.completed))
+
+        // Check if there are incomplete tech stacks
+        const completedTechStacks = state.completedTechStacks || []
+        const selectedTechStacks = state.selectedTechStacks || []
+        const incompleteTechStacksList = selectedTechStacks.filter((stack: string) => !completedTechStacks.includes(stack))
+        const hasNew = incompleteTechStacksList.length > 0 && completedTechStacks.length > 0
+        const hasIncompleteStacks = incompleteTechStacksList.length > 0
+        
+        const hasPreviouslyCompleted = completedTechStacks.length > 0
+        
+        setHasNewIncompleteTechStack(hasNew)
+        setNewTechStacks(incompleteTechStacksList)
+        setHasPreviouslyCompletedStacks(hasPreviouslyCompleted)
+        
+        // Track if there are any incomplete stacks (for button visibility)
+        setHasIncompleteOnboarding(hasIncompleteStacks || !onboardingJson?.completed)
+
+        // 2) If onboarding incomplete AND no previously completed stacks -> don't fetch data
+        // If there are previously completed stacks, allow viewing data even with new incomplete stacks
+        if (!onboardingJson?.completed && !hasPreviouslyCompleted) {
+          return
+        }
+
+        // 3) Fetch company data (now allowed)
+        const dataRes = await fetch(`/api/companies/${user.companyId}/data`, {
+          headers: { Authorization: `Bearer ${sessionToken}` },
+        })
+        const result = await dataRes.json()
 
         if (result.success && result.data) {
           setCompanyData(result.data)
         } else if (result.success && !result.data) {
-          // No data available yet
+          // No data available yet (new client)
           setCompanyData(null)
         } else {
           setDataError(result.error || 'Failed to load data')
         }
       } catch (error) {
-        console.error('Error fetching company data:', error)
-        setDataError('Failed to load company data')
+        console.error('Error fetching onboarding/dashboard data:', error)
+        setDataError('Failed to load dashboard')
       } finally {
         setDataLoading(false)
       }
     }
 
-    fetchCompanyData()
-  }, [user?.companyId])
+    fetchOnboardingAndMaybeData()
+  }, [user?.companyId, isLoading])
 
   // Skeleton loader component
   const SkeletonLoader = () => (
@@ -842,52 +901,147 @@ export default function Dashboard() {
                 {user.companyName ? `Analytics for ${user.companyName}` : 'Company Analytics'}
               </p>
             </div>
-            {companyData && (
-              <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
+              {hasIncompleteOnboarding && (
                 <button
-                  onClick={expandAll}
-                  className="px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all"
+                  onClick={() => router.push('/dashboard/company/onboarding')}
+                  className="px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all flex items-center gap-2"
                   style={{
-                    backgroundColor: 'var(--card-bg)',
+                    backgroundColor: 'var(--hover-bg)',
                     borderColor: 'var(--border-strong)',
                     color: 'var(--text-primary)'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                    e.currentTarget.style.backgroundColor = 'var(--active-bg)'
                     e.currentTarget.style.borderColor = 'var(--border-color)'
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--card-bg)'
-                    e.currentTarget.style.borderColor = 'var(--border-strong)'
-                  }}
-                >
-                  Expand All
-                </button>
-                <button
-                  onClick={collapseAll}
-                  className="px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all"
-                  style={{
-                    backgroundColor: 'var(--card-bg)',
-                    borderColor: 'var(--border-strong)',
-                    color: 'var(--text-primary)'
-                  }}
-                  onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
-                    e.currentTarget.style.borderColor = 'var(--border-color)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--card-bg)'
                     e.currentTarget.style.borderColor = 'var(--border-strong)'
                   }}
                 >
-                  Collapse All
+                  <Rocket className="w-4 h-4" />
+                  Continue Onboarding
                 </button>
-              </div>
-            )}
+              )}
+              {companyData && (
+                <>
+                  <button
+                    onClick={expandAll}
+                    className="px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all"
+                    style={{
+                      backgroundColor: 'var(--card-bg)',
+                      borderColor: 'var(--border-strong)',
+                      color: 'var(--text-primary)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                      e.currentTarget.style.borderColor = 'var(--border-color)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'var(--card-bg)'
+                      e.currentTarget.style.borderColor = 'var(--border-strong)'
+                    }}
+                  >
+                    Expand All
+                  </button>
+                  <button
+                    onClick={collapseAll}
+                    className="px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all"
+                    style={{
+                      backgroundColor: 'var(--card-bg)',
+                      borderColor: 'var(--border-strong)',
+                      color: 'var(--text-primary)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                      e.currentTarget.style.borderColor = 'var(--border-color)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'var(--card-bg)'
+                      e.currentTarget.style.borderColor = 'var(--border-strong)'
+                    }}
+                  >
+                    Collapse All
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
-        {dataError ? (
+        {!user?.companyId ? (
+          <div
+            className="p-6 rounded-lg border-2 mb-6"
+            style={{
+              backgroundColor: 'var(--card-bg)',
+              borderColor: 'var(--border-strong)'
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <Building2 className="w-5 h-5 mt-0.5" style={{ color: 'var(--text-primary)' }} />
+              <div className="flex-1">
+                <p className="font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+                  Create your company to unlock the dashboard
+                </p>
+                <p className="text-sm mb-4" style={{ color: 'var(--text-tertiary)' }}>
+                  You need a company workspace before we can show analytics.
+                </p>
+                <button
+                  onClick={() => router.push('/dashboard/company')}
+                  className="px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all"
+                  style={{
+                    backgroundColor: 'var(--hover-bg)',
+                    borderColor: 'var(--border-strong)',
+                    color: 'var(--text-primary)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-color)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-strong)'
+                  }}
+                >
+                  Go to Company
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : !onboardingCompleted && !hasPreviouslyCompletedStacks ? (
+          <div
+            className="p-6 rounded-lg border-2 mb-6"
+            style={{
+              backgroundColor: 'var(--card-bg)',
+              borderColor: 'var(--border-strong)'
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <Rocket className="w-5 h-5 mt-0.5" style={{ color: 'var(--text-primary)' }} />
+              <div className="flex-1">
+                <p className="font-medium mb-4" style={{ color: 'var(--text-primary)' }}>
+                  Complete onboarding to view your dashboard
+                </p>
+                <button
+                  onClick={() => router.push('/dashboard/company/onboarding')}
+                  className="px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all"
+                  style={{
+                    backgroundColor: 'var(--hover-bg)',
+                    borderColor: 'var(--border-strong)',
+                    color: 'var(--text-primary)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-color)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-strong)'
+                  }}
+                >
+                  Go to Onboarding
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : dataError ? (
           <div 
             className="p-6 rounded-lg border-2 mb-6"
             style={{
@@ -905,12 +1059,74 @@ export default function Dashboard() {
               borderColor: 'var(--border-strong)'
             }}
           >
-            <p style={{ color: 'var(--text-tertiary)' }}>
-              No data available yet. Data will appear here once your external system sends updates.
+            <p className="mb-4" style={{ color: 'var(--text-tertiary)' }}>
+              No data yet. Your dashboard will populate once your external system sends updates.
             </p>
+            <SkeletonLoader />
           </div>
         ) : (
           <>
+            {/* Banner for new incomplete tech stack - Show at top when data exists */}
+            {hasNewIncompleteTechStack && !dismissedDashboardNotification && companyData && (
+              <div
+                className="mb-6 p-4 rounded-lg border-2 flex items-start gap-3 relative"
+                style={{ backgroundColor: 'rgba(245, 158, 11, 0.08)', borderColor: '#f59e0b' }}
+              >
+                <AlertTriangle className="w-5 h-5 flex-shrink-0" style={{ color: '#f59e0b' }} />
+                <div className="flex-1">
+                  <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+                    New Tech Stack Added
+                  </p>
+                  <p className="text-sm mb-3" style={{ color: 'var(--text-tertiary)' }}>
+                    You've added {newTechStacks.map(stack => {
+                      const stackNames: Record<string, string> = {
+                        'nodejs': 'Node.js',
+                        'nextjs': 'Next.js',
+                        'wordpress': 'WordPress',
+                        'shopify': 'Shopify',
+                        'webflow': 'Webflow',
+                        'squarespace': 'Squarespace'
+                      }
+                      return stackNames[stack] || stack
+                    }).join(', ')} to your tech stack. Complete onboarding for this {newTechStacks.length === 1 ? 'stack' : 'stack'} to continue.
+                  </p>
+                  <button
+                    onClick={() => router.push('/dashboard/company/onboarding')}
+                    className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                    style={{ 
+                      backgroundColor: '#f59e0b', 
+                      color: 'white'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#d97706'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#f59e0b'
+                    }}
+                  >
+                    Complete Onboarding
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDismissedDashboardNotification(true)}
+                  className="p-1 rounded transition-all flex-shrink-0"
+                  style={{ color: 'var(--text-tertiary)' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                    e.currentTarget.style.color = 'var(--text-primary)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent'
+                    e.currentTarget.style.color = 'var(--text-tertiary)'
+                  }}
+                  title="Dismiss"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
             {/* Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
               <div 
@@ -1022,54 +1238,6 @@ export default function Dashboard() {
 
             </div>
 
-            {/* Active Borrowers Chart - Full Width */}
-            <div 
-              className="p-6 rounded-lg border-2 mb-8"
-              style={{
-                backgroundColor: 'var(--card-bg)',
-                borderColor: 'var(--border-strong)'
-              }}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-                  Active Borrowers Per Day
-                </h3>
-                <button
-                  onClick={() => toggleSection('activeBorrowers')}
-                  className="p-1 rounded transition-all"
-                  style={{ color: 'var(--text-tertiary)' }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
-                    e.currentTarget.style.color = 'var(--text-primary)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent'
-                    e.currentTarget.style.color = 'var(--text-tertiary)'
-                  }}
-                >
-                  {collapsedSections.activeBorrowers ? (
-                    <ChevronDown className="w-5 h-5" />
-                  ) : (
-                    <ChevronUp className="w-5 h-5" />
-                  )}
-                </button>
-              </div>
-              {!collapsedSections.activeBorrowers && (
-                companyData.metrics_trend.data.length > 0 ? (
-                  <SimpleLineChart
-                    data={companyData.metrics_trend.data.map(item => ({
-                      name: item.date,
-                      value: item.active_borrowers
-                    }))}
-                    height={320}
-                    color="#3b82f6"
-                  />
-                ) : (
-                  <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No data available</p>
-                )
-              )}
-            </div>
-
             {/* Conversions Chart - Full Width */}
             <div 
               className="p-6 rounded-lg border-2 mb-8"
@@ -1112,6 +1280,54 @@ export default function Dashboard() {
                     height={320}
                     color="#10b981"
                 />
+                ) : (
+                  <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No data available</p>
+                )
+              )}
+            </div>
+
+            {/* Active Borrowers Chart - Full Width */}
+            <div 
+              className="p-6 rounded-lg border-2 mb-8"
+              style={{
+                backgroundColor: 'var(--card-bg)',
+                borderColor: 'var(--border-strong)'
+              }}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  Active Borrowers Per Day
+                </h3>
+                <button
+                  onClick={() => toggleSection('activeBorrowers')}
+                  className="p-1 rounded transition-all"
+                  style={{ color: 'var(--text-tertiary)' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                    e.currentTarget.style.color = 'var(--text-primary)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent'
+                    e.currentTarget.style.color = 'var(--text-tertiary)'
+                  }}
+                >
+                  {collapsedSections.activeBorrowers ? (
+                    <ChevronDown className="w-5 h-5" />
+                  ) : (
+                    <ChevronUp className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+              {!collapsedSections.activeBorrowers && (
+                companyData.metrics_trend.data.length > 0 ? (
+                  <SimpleLineChart
+                    data={companyData.metrics_trend.data.map(item => ({
+                      name: item.date,
+                      value: item.active_borrowers
+                    }))}
+                    height={320}
+                    color="#3b82f6"
+                  />
                 ) : (
                   <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No data available</p>
                 )
