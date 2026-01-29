@@ -128,7 +128,7 @@ export default function DemoModal({ isOpen, onClose }: DemoModalProps) {
                               animate={{ opacity: 1, scale: 1, y: 0 }}
                               className="absolute right-0 top-[52px] z-40 w-64 overflow-visible"
                             >
-                              <div className="bg-white rounded-lg shadow-2xl border-4 border-yellow-400 p-2 relative">
+                              <div className="bg-white rounded-lg shadow-2xl border-4 border-blue-400 p-2 relative">
                                 {/* Arrow pointing up to login button - positioned to touch button bottom */}
                                 <div 
                                   className="absolute -top-[10px] right-9 z-10"
@@ -137,7 +137,7 @@ export default function DemoModal({ isOpen, onClose }: DemoModalProps) {
                                     height: 0,
                                     borderLeft: '10px solid transparent',
                                     borderRight: '10px solid transparent',
-                                    borderBottom: '10px solid #FFD700',
+                                    borderBottom: '10px solid #3b82f6',
                                   }}
                                 />
                                 <div 
@@ -159,7 +159,7 @@ export default function DemoModal({ isOpen, onClose }: DemoModalProps) {
                                 <div className="flex-1">
                                   <p className="text-sm font-semibold text-gray-900 mb-1">Press here</p>
                                   <p className="text-xs text-gray-600 mb-3">Click "Log in" to start the demo</p>
-                                  <div className="bg-yellow-50 p-4 rounded" style={{ marginLeft: '-1.25rem', marginRight: '-0.5rem' }}>
+                                  <div className="bg-blue-50 p-4 rounded" style={{ marginLeft: '-1.25rem', marginRight: '-0.5rem' }}>
                                     <p className="text-xs text-gray-700 leading-relaxed">
                                       <strong>Context:</strong> You have successfully integrated Unshared Labs SDK and the detection engine has been learning user behaviors.
                                     </p>
@@ -209,7 +209,7 @@ export default function DemoModal({ isOpen, onClose }: DemoModalProps) {
                   <h2 className="text-3xl font-bold text-center mb-6 text-gray-900">Premium Content</h2>
                   <div className="grid md:grid-cols-3 gap-4">
                     <div className="bg-gray-50 p-5 rounded-xl shadow-sm border-2 border-gray-200 relative">
-                      <div className="absolute top-2 right-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded">PREMIUM</div>
+                      <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded">PREMIUM</div>
                       <div className="text-3xl mb-3">📚</div>
                       <h3 className="text-lg font-semibold mb-2 text-gray-900">Premium Courses</h3>
                       <p className="text-sm text-gray-600 leading-relaxed mb-3">
@@ -218,7 +218,7 @@ export default function DemoModal({ isOpen, onClose }: DemoModalProps) {
                       <div className="text-xs text-gray-500 font-medium">🔒 Subscription Required</div>
                     </div>
                     <div className="bg-gray-50 p-5 rounded-xl shadow-sm border-2 border-gray-200 relative">
-                      <div className="absolute top-2 right-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded">PREMIUM</div>
+                      <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded">PREMIUM</div>
                       <div className="text-3xl mb-3">📰</div>
                       <h3 className="text-lg font-semibold mb-2 text-gray-900">Exclusive Articles</h3>
                       <p className="text-sm text-gray-600 leading-relaxed mb-3">
@@ -227,7 +227,7 @@ export default function DemoModal({ isOpen, onClose }: DemoModalProps) {
                       <div className="text-xs text-gray-500 font-medium">🔒 Subscription Required</div>
                     </div>
                     <div className="bg-gray-50 p-5 rounded-xl shadow-sm border-2 border-gray-200 relative">
-                      <div className="absolute top-2 right-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded">PREMIUM</div>
+                      <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded">PREMIUM</div>
                       <div className="text-3xl mb-3">🎥</div>
                       <h3 className="text-lg font-semibold mb-2 text-gray-900">Premium Videos</h3>
                       <p className="text-sm text-gray-600 leading-relaxed mb-3">

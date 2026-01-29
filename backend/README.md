@@ -46,9 +46,9 @@ Handles all authentication logic:
 Required environment variables (set in `.env.local`):
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key (optional, for admin operations)
+SUPABASE_URL=your-supabase-url
+SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_API_KEY=your-api-key (optional, for admin operations)
 ```
 
 ## Architecture

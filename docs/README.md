@@ -133,9 +133,9 @@ The app uses Supabase for authentication with a clean separation:
 Create a `.env.local` file in the `frontend/` directory:
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key (optional)
+SUPABASE_URL=your-supabase-url
+SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_API_KEY=your-api-key (optional)
 ```
 
 ## Deployment

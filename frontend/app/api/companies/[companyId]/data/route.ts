@@ -1,0 +1,206 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+/**
+ * GET /api/companies/[companyId]/data
+ * Get current company dashboard data
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { companyId: string } }
+) {
+  try {
+    const authHeader = request.headers.get('authorization')
+    const sessionToken = authHeader?.replace('Bearer ', '') || 
+                        request.cookies.get('sb-access-token')?.value
+
+    if (!sessionToken) {
+      return NextResponse.json(
+        { success: false, error: 'Not authenticated' },
+        { status: 401 }
+      )
+    }
+
+    const supabaseUrl = process.env.SUPABASE_URL
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
+    const supabaseServiceKey = process.env.SUPABASE_API_KEY
+    const supabaseKey = supabaseAnonKey || supabaseServiceKey
+
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json(
+        { success: false, error: 'Configuration error' },
+        { status: 500 }
+      )
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+        },
+      },
+    })
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid session' },
+        { status: 401 }
+      )
+    }
+
+    // Check if user has access to this company
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('company_id, role')
+      .eq('user_id', user.id)
+      .single()
+
+    const isSuperAdmin = userProfile?.role === 'super_admin'
+    const hasAccess = isSuperAdmin || userProfile?.company_id === params.companyId
+
+    if (!hasAccess) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized - You do not have access to this company' },
+        { status: 403 }
+      )
+    }
+
+    // Get current company data
+    const { data: companyData, error: dataError } = await supabase
+      .from('company_data')
+      .select('id, data, version, created_at, updated_at')
+      .eq('company_id', params.companyId)
+      .single()
+
+    if (dataError) {
+      if (dataError.code === 'PGRST116') {
+        // No data found
+        return NextResponse.json(
+          { success: true, data: null, message: 'No data available for this company' },
+          { status: 200 }
+        )
+      }
+      return NextResponse.json(
+        { success: false, error: dataError.message || 'Failed to fetch company data' },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: companyData.data,
+      version: companyData.version,
+      updated_at: companyData.updated_at,
+    })
+  } catch (error: any) {
+    console.error('Get company data error:', error)
+    return NextResponse.json(
+      { success: false, error: 'An unexpected error occurred' },
+      { status: 500 }
+    )
+  }
+}
+
+/**
+ * POST /api/companies/[companyId]/data
+ * Update company dashboard data (for external system)
+ * Requires service role key for authentication
+ */
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { companyId: string } }
+) {
+  try {
+    // For external system updates, we'll use a service role key or API key
+    // You can implement your own authentication mechanism here
+    const authHeader = request.headers.get('authorization')
+    const apiKey = authHeader?.replace('Bearer ', '') || 
+                   request.headers.get('x-api-key')
+
+    // TODO: Implement your API key validation here
+    // For now, we'll use the service role key as a simple auth mechanism
+    const supabaseServiceKey = process.env.SUPABASE_API_KEY
+    
+    if (!apiKey || apiKey !== supabaseServiceKey) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized - Invalid API key' },
+        { status: 401 }
+      )
+    }
+
+    const supabaseUrl = process.env.SUPABASE_URL
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return NextResponse.json(
+        { success: false, error: 'Configuration error' },
+        { status: 500 }
+      )
+    }
+
+    // Use service role key to bypass RLS
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey)
+
+    // Verify company exists
+    const { data: company, error: companyError } = await adminClient
+      .from('companies')
+      .select('id')
+      .eq('id', params.companyId)
+      .single()
+
+    if (companyError || !company) {
+      return NextResponse.json(
+        { success: false, error: 'Company not found' },
+        { status: 404 }
+      )
+    }
+
+    const body = await request.json()
+    const { data } = body
+
+    if (!data || typeof data !== 'object') {
+      return NextResponse.json(
+        { success: false, error: 'Invalid data. Must be a JSON object' },
+        { status: 400 }
+      )
+    }
+
+    // Upsert company data (creates if doesn't exist, updates if exists)
+    // The trigger will automatically:
+    // 1. Save old version to history (if updating)
+    // 2. Increment version number
+    // 3. Update updated_at timestamp
+    const { data: updatedData, error: updateError } = await adminClient
+      .from('company_data')
+      .upsert({
+        company_id: params.companyId,
+        data: data,
+      }, {
+        onConflict: 'company_id'
+      })
+      .select('id, version, updated_at')
+      .single()
+
+    if (updateError) {
+      console.error('Error updating company data:', updateError)
+      return NextResponse.json(
+        { success: false, error: updateError.message || 'Failed to update company data' },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Company data updated successfully',
+      version: updatedData.version,
+      company_id: params.companyId,
+    })
+  } catch (error: any) {
+    console.error('Update company data error:', error)
+    return NextResponse.json(
+      { success: false, error: 'An unexpected error occurred' },
+      { status: 500 }
+    )
+  }
+}

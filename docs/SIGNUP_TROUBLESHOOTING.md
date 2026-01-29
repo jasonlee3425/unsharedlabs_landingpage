@@ -25,13 +25,13 @@ The sign-up flow is designed to allow any user to create an account. Here's what
 
 ### 2. Missing Service Role Key
 
-**Problem**: If `SUPABASE_SERVICE_ROLE_KEY` is not set, the app falls back to the anon key, which may be restricted by RLS policies.
+**Problem**: If `SUPABASE_API_KEY` is not set, the app falls back to the anon key, which may be restricted by RLS policies.
 
 **Solution**:
 1. Get your service role key from Supabase Dashboard → Settings → API
 2. Add it to your `.env.local` file:
    ```
-   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+   SUPABASE_API_KEY=your-api-key-here
    ```
 3. Restart your development server
 
@@ -71,9 +71,9 @@ If you want to implement an email allowlist in the future, you would need to:
 1. **Check Environment Variables**:
    ```bash
    # Make sure these are set in .env.local
-   NEXT_PUBLIC_SUPABASE_URL=your-project-url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key  # Important!
+   SUPABASE_URL=your-project-url
+   SUPABASE_ANON_KEY=your-anon-key
+   SUPABASE_API_KEY=your-api-key  # Important!
    ```
 
 2. **Check Supabase Auth Settings**:
@@ -108,7 +108,7 @@ If you want to implement an email allowlist in the future, you would need to:
 Sign-ups are already designed to be self-serviceable. To ensure they work:
 
 1. ✅ **Disable email confirmation** OR **configure SMTP**
-2. ✅ **Set SUPABASE_SERVICE_ROLE_KEY** environment variable
+2. ✅ **Set SUPABASE_API_KEY** environment variable
 3. ✅ **Run supabase_setup.sql** to create tables and policies
 4. ✅ **Verify RLS policies** allow profile creation
 

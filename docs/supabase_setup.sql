@@ -96,7 +96,7 @@ CREATE POLICY "Users can insert their own profile"
 -- Allow inserts during sign-up (when user is being created)
 -- This policy allows the service role to create profiles during sign-up
 -- Service role key bypasses RLS by default, but this ensures compatibility
--- Note: Make sure SUPABASE_SERVICE_ROLE_KEY is set in your environment variables
+-- Note: Make sure SUPABASE_API_KEY is set in your environment variables
 CREATE POLICY "Allow profile creation during signup"
   ON user_profiles FOR INSERT
   WITH CHECK (true);

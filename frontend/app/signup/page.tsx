@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { 
   ArrowRight,
@@ -10,11 +10,11 @@ import {
   Loader2,
   CheckCircle,
   AlertCircle,
-  Building2
+  User
 } from 'lucide-react'
 import Link from 'next/link'
 import { signUp, signIn } from '@/lib/auth'
-import { useAuthUpdate } from '@/lib/auth-context'
+import { useAuthUpdate, useAuth } from '@/lib/auth-context'
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -24,28 +24,50 @@ const fadeInUp = {
 
 export default function SignUp() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { updateUser } = useAuthUpdate()
+  const { refreshUser } = useAuth()
   const [isSignIn, setIsSignIn] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [inviteToken, setInviteToken] = useState<string | null>(null)
+  const [inviteEmail, setInviteEmail] = useState<string | null>(null)
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
     password: '',
-    confirmPassword: '',
-    companyName: ''
+    confirmPassword: ''
   })
 
-  // Check URL parameter on mount (client-side only)
+  // Check URL parameters on mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      const mode = params.get('mode')
-      if (mode === 'signin') {
-        setIsSignIn(true)
-      }
+    const mode = searchParams?.get('mode')
+    const invite = searchParams?.get('invite')
+    
+    if (mode === 'signin') {
+      setIsSignIn(true)
     }
-  }, [])
+    
+    if (invite) {
+      setInviteToken(invite)
+      // Fetch invitation details to pre-fill email
+      fetchInviteDetails(invite)
+    }
+  }, [searchParams])
+
+  const fetchInviteDetails = async (token: string) => {
+    try {
+      const response = await fetch(`/api/invite/details?token=${token}`)
+      const data = await response.json()
+      if (data.success && data.invitation) {
+        setInviteEmail(data.invitation.email)
+        setFormData(prev => ({ ...prev, email: data.invitation.email }))
+      }
+    } catch (error) {
+      console.error('Error fetching invite details:', error)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -57,10 +79,22 @@ export default function SignUp() {
       if (isSignIn) {
         // Sign in
         const result = await signIn(formData.email, formData.password)
+        
         if (result.success && result.user) {
+          // Update user in localStorage and context
           updateUser(result.user)
-          router.push('/dashboard')
+          // Refresh auth context to ensure user is loaded
+          await refreshUser()
+          
+          // If there's an invite token, redirect to accept it
+          if (inviteToken) {
+            window.location.href = `/invite/accept?token=${inviteToken}`
+          } else {
+            // Use window.location for a hard redirect to ensure auth state is loaded
+            window.location.href = '/dashboard'
+          }
         } else {
+          console.error('Sign in failed:', result.error)
           setError(result.error || 'Failed to sign in. Please check your credentials and try again.')
         }
       } else {
@@ -77,14 +111,30 @@ export default function SignUp() {
           return
         }
 
-        const result = await signUp(
-          formData.email, 
-          formData.password,
-          formData.companyName.trim() || undefined
-        )
+        // Call signup API with invite token if present
+        const signupResponse = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            name: formData.name.trim() || undefined,
+            inviteToken: inviteToken || undefined,
+          }),
+        })
+
+        const result = await signupResponse.json()
+
         if (result.success) {
-          setSuccess('Account created! Please check your email to confirm your account, then sign in.')
-          setFormData({ email: '', password: '', confirmPassword: '', companyName: '' })
+          // Account created - email confirmation will handle redirect
+          if (inviteToken) {
+            setSuccess('Account created! Please check your email to confirm your account. After confirmation, you\'ll be redirected to accept the invitation.')
+          } else {
+            setSuccess('Account created! Please check your email to confirm your account, then you\'ll be redirected to the dashboard.')
+          }
+          setFormData({ name: '', email: '', password: '', confirmPassword: '' })
         } else {
           setError(result.error || 'Failed to create account')
         }
@@ -111,10 +161,10 @@ export default function SignUp() {
     setSuccess(null)
     // Reset form when switching modes
     setFormData({
+      name: '',
       email: '',
       password: '',
-      confirmPassword: '',
-      companyName: ''
+      confirmPassword: ''
     })
   }
 
@@ -176,14 +226,42 @@ export default function SignUp() {
                 )}
               </h1>
               <p className="text-silver text-sm sm:text-base">
-                {isSignIn
-                  ? 'Sign in to your account to continue.'
-                  : (<>Start protecting your revenue today.<br />It&apos;s completely free to start.</>)}
+                {inviteToken && !isSignIn ? (
+                  <>You&apos;ve been invited to join a company!<br />Create your account to accept the invitation.</>
+                ) : isSignIn ? (
+                  'Sign in to your account to continue.'
+                ) : (
+                  <>Start protecting your revenue today.<br />It&apos;s completely free to start.</>
+                )}
               </p>
             </div>
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Name Field - Only show for Sign Up */}
+              {!isSignIn && (
+                <div>
+                  <label htmlFor="name" className="block text-sm text-silver mb-2">
+                    Full Name
+                  </label>
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                      <User className="w-5 h-5 text-silver" />
+                    </div>
+                    <input
+                      type="text"
+                      id="name"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      required={!isSignIn}
+                      className="w-full pl-12 pr-4 py-3 bg-black/50 border border-white/10 rounded-lg text-white placeholder-silver/50 focus:outline-none focus:border-white/30 focus:bg-black/70 transition-all"
+                      placeholder="John Doe"
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Email Field */}
               <div>
                 <label htmlFor="email" className="block text-sm text-silver mb-2">
@@ -200,9 +278,15 @@ export default function SignUp() {
                     value={formData.email}
                     onChange={handleChange}
                     required
-                    className="w-full pl-12 pr-4 py-3 bg-black/50 border border-white/10 rounded-lg text-white placeholder-silver/50 focus:outline-none focus:border-white/30 focus:bg-black/70 transition-all"
+                    disabled={!!inviteEmail}
+                    className="w-full pl-12 pr-4 py-3 bg-black/50 border border-white/10 rounded-lg text-white placeholder-silver/50 focus:outline-none focus:border-white/30 focus:bg-black/70 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     placeholder="you@example.com"
                   />
+                  {inviteEmail && (
+                    <p className="text-xs text-silver/70 mt-1">
+                      Email is set by invitation
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -251,32 +335,6 @@ export default function SignUp() {
                       placeholder="••••••••"
                     />
                   </div>
-                </div>
-              )}
-
-              {/* Company Name Field - Only show for Sign Up */}
-              {!isSignIn && (
-                <div>
-                  <label htmlFor="companyName" className="block text-sm text-silver mb-2">
-                    Company Name <span className="text-silver/50">(Optional)</span>
-                  </label>
-                  <div className="relative">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                      <Mail className="w-5 h-5 text-silver" />
-                    </div>
-                    <input
-                      type="text"
-                      id="companyName"
-                      name="companyName"
-                      value={formData.companyName}
-                      onChange={handleChange}
-                      className="w-full pl-12 pr-4 py-3 bg-black/50 border border-white/10 rounded-lg text-white placeholder-silver/50 focus:outline-none focus:border-white/30 focus:bg-black/70 transition-all"
-                      placeholder="Your Company"
-                    />
-                  </div>
-                  <p className="text-xs text-silver/70 mt-1">
-                    If you&apos;re signing up for a company, enter the company name here.
-                  </p>
                 </div>
               )}
 

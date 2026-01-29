@@ -166,7 +166,7 @@ export default function Home() {
                 <div className="bg-black/50 rounded-xl p-4 sm:p-6 border border-white/5">
                   <div className="flex items-center justify-between mb-4 sm:mb-6">
                     <span className="text-sm text-silver">Account Insights</span>
-                    <AlertTriangle className="w-4 h-4 text-amber-400" />
+                    <AlertTriangle className="w-4 h-4 text-blue-400" />
                   </div>
                   <div className="space-y-3 sm:space-y-4">
                     <div className="flex justify-between items-center">
@@ -185,7 +185,7 @@ export default function Home() {
                       <span className="text-xs text-silver">Sharing signals</span>
                       <div className="flex flex-wrap gap-2 mt-2">
                         <span className="px-2 py-1 text-xs bg-rose-500/20 text-rose-400 rounded-full">Concurrent 23</span>
-                        <span className="px-2 py-1 text-xs bg-amber-500/20 text-amber-400 rounded-full">Travel 8</span>
+                        <span className="px-2 py-1 text-xs bg-blue-500/20 text-blue-400 rounded-full">Travel 8</span>
                         <span className="px-2 py-1 text-xs bg-purple-500/20 text-purple-400 rounded-full">Devices 12</span>
                       </div>
                     </div>
@@ -201,8 +201,8 @@ export default function Home() {
                   <div className="space-y-2 sm:space-y-3">
                     {[
                       { icon: Monitor, id: '8f2a91c...', status: 'owner', color: 'emerald' },
-                      { icon: Smartphone, id: '3b7e42d...', status: 'flagged', color: 'amber' },
-                      { icon: Monitor, id: '9c1f83a...', status: 'flagged', color: 'amber' },
+                      { icon: Smartphone, id: '3b7e42d...', status: 'flagged', color: 'blue' },
+                      { icon: Monitor, id: '9c1f83a...', status: 'flagged', color: 'blue' },
                       { icon: Smartphone, id: '5d4a92e...', status: 'blocked', color: 'rose' },
                       { icon: Globe, id: '2e8b71f...', status: 'blocked', color: 'rose' },
                     ].map((device, i) => (
@@ -397,9 +397,9 @@ export default function Home() {
                       </div>
                       <span className="text-xs text-silver">just now</span>
                     </div>
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
                       <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-amber-400" />
+                        <AlertTriangle className="w-4 h-4 text-blue-400" />
                         <span className="text-xs text-white">Sharing detected → Challenge sent</span>
                       </div>
                       <span className="text-xs text-silver">2m ago</span>

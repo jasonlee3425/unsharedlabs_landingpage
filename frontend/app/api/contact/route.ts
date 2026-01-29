@@ -14,8 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     // TODO: Implement actual email sending or database storage
-    // For now, just log and return success
-    console.log('Contact form submission:', { name, email, message })
+    // For now, just return success
 
     // In production, you would:
     // 1. Send email via your email service (e.g., Resend, SendGrid)

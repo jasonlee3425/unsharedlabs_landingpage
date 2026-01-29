@@ -12,7 +12,7 @@ import { signUp } from '@backend/services/auth.service'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { email, password, companyName } = body
+    const { email, password, name, companyName, inviteToken } = body
 
     // Validate required fields
     if (!email || !password) {
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Call Supabase Auth to create user (this sends confirmation email via Brevo)
-    const result = await signUp({ email, password, companyName })
+    const result = await signUp({ email, password, name, companyName, inviteToken })
 
     if (!result.success) {
       console.error('Signup failed:', {

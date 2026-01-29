@@ -1,0 +1,60 @@
+-- ============================================================================
+-- SQL to Remove Constraints (USE WITH CAUTION!)
+-- Only run these if you're sure you want to remove constraints
+-- ============================================================================
+
+-- ============================================================================
+-- 1. Remove a specific constraint by name
+-- ============================================================================
+-- First, find the constraint name using the check_constraints_and_policies.sql queries
+-- Then run:
+-- ALTER TABLE companies DROP CONSTRAINT constraint_name;
+
+-- ============================================================================
+-- 2. Remove all CHECK constraints from companies table
+-- ============================================================================
+-- WARNING: This removes ALL check constraints. Use with caution!
+-- DO $$ 
+-- DECLARE
+--     r RECORD;
+-- BEGIN
+--     FOR r IN (
+--         SELECT conname
+--         FROM pg_constraint
+--         WHERE conrelid = 'companies'::regclass
+--         AND contype = 'c'
+--     ) LOOP
+--         EXECUTE 'ALTER TABLE companies DROP CONSTRAINT ' || quote_ident(r.conname);
+--     END LOOP;
+-- END $$;
+
+-- ============================================================================
+-- 3. Remove a specific RLS policy
+-- ============================================================================
+-- DROP POLICY "policy_name" ON companies;
+
+-- ============================================================================
+-- 4. Disable RLS entirely (NOT RECOMMENDED for production!)
+-- ============================================================================
+-- ALTER TABLE companies DISABLE ROW LEVEL SECURITY;
+
+-- ============================================================================
+-- 5. Remove all foreign key constraints referencing companies
+-- ============================================================================
+-- WARNING: This will break referential integrity!
+-- DO $$ 
+-- DECLARE
+--     r RECORD;
+-- BEGIN
+--     FOR r IN (
+--         SELECT tc.constraint_name
+--         FROM information_schema.table_constraints AS tc
+--         JOIN information_schema.constraint_column_usage AS ccu
+--             ON ccu.constraint_name = tc.constraint_name
+--         WHERE ccu.table_name = 'companies'
+--             AND tc.constraint_type = 'FOREIGN KEY'
+--     ) LOOP
+--         EXECUTE 'ALTER TABLE ' || quote_ident(r.table_name) || 
+--                 ' DROP CONSTRAINT ' || quote_ident(r.constraint_name);
+--     END LOOP;
+-- END $$;

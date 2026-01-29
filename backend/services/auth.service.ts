@@ -48,14 +48,11 @@ export async function getUserProfile(userId: string): Promise<{ profile: UserPro
  * Uses regular Supabase Auth signup which sends confirmation email via custom SMTP (Brevo)
  * User must confirm email before signing in
  */
-export async function signUp({ email, password, companyName }: SignUpRequest): Promise<AuthResponse> {
+export async function signUp({ email, password, name, companyName, inviteToken }: SignUpRequest): Promise<AuthResponse> {
   try {
     // Check if Supabase is configured
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
-    const hasApiKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
-                      process.env.SUPABASE_ANON_KEY || 
-                      process.env.SUPABASE_API_KEY ||
-                      process.env.SUPABASE_SERVICE_ROLE_KEY
+    const supabaseUrl = process.env.SUPABASE_URL
+    const hasApiKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_API_KEY
     
     if (!supabaseUrl || !hasApiKey) {
       console.error('⚠️ Supabase environment variables missing!')
@@ -70,13 +67,39 @@ export async function signUp({ email, password, companyName }: SignUpRequest): P
 
     // Step 1: Create user in Supabase Auth
     // This will send a confirmation email via your custom SMTP (Brevo)
+    const redirectUrl = inviteToken 
+      ? `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback?invite=${inviteToken}`
+      : `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`
+    
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
       options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/signin`,
+        emailRedirectTo: redirectUrl,
+        data: name ? {
+          // Store name in user metadata
+          name: name,
+          full_name: name,
+          ...(inviteToken ? { invite_token: inviteToken } : {}),
+        } : (inviteToken ? { invite_token: inviteToken } : undefined),
       },
     })
+    
+    // Update the user's display name if name is provided (using admin API)
+    if (name && data.user && supabaseAdmin) {
+      try {
+        // Use admin client to update user metadata and set display name
+        await supabaseAdmin.auth.admin.updateUserById(data.user.id, {
+          user_metadata: {
+            name: name,
+            full_name: name,
+          },
+        })
+      } catch (updateError) {
+        console.error('Error updating user name:', updateError)
+        // Don't fail signup if name update fails - metadata might already be set
+      }
+    }
 
     if (error) {
       console.error('Supabase signup error:', {
@@ -110,11 +133,12 @@ export async function signUp({ email, password, companyName }: SignUpRequest): P
       return { success: false, error: 'Failed to create user' }
     }
 
-    // Step 2: Handle company (if provided)
+    // Step 2: Handle company (if provided, but skip if there's an invite token - invite will handle company assignment)
     // Use admin client to bypass RLS if needed
     const adminClient = supabaseAdmin || supabase
     let companyId: string | null = null
-    if (companyName && companyName.trim()) {
+    // Don't create/assign company if there's an invite token - the invite acceptance will handle it
+    if (companyName && companyName.trim() && !inviteToken) {
       // Try to find existing company
       const { data: existingCompany } = await adminClient
         .from('companies')
@@ -162,6 +186,7 @@ export async function signUp({ email, password, companyName }: SignUpRequest): P
       user: {
         id: data.user.id,
         email: data.user.email || normalizedEmail,
+        name: name || data.user.user_metadata?.name || data.user.user_metadata?.full_name || undefined,
         role: 'client',
         companyId: companyId || undefined,
       },
@@ -214,11 +239,18 @@ export async function signIn({ email, password }: SignInRequest): Promise<AuthRe
     // Fetch user profile with role and company info
     const { profile, company } = await getUserProfile(data.user.id)
 
+    // Get name from user metadata
+    const userName = data.user.user_metadata?.name || 
+                     data.user.user_metadata?.full_name || 
+                     data.user.user_metadata?.display_name ||
+                     undefined
+
     return {
       success: true,
       user: {
         id: data.user.id,
         email: data.user.email || normalizedEmail,
+        name: userName,
         role: profile?.role || 'client',
         companyId: profile?.company_id || undefined,
         companyName: company?.name || undefined,
@@ -241,8 +273,8 @@ export async function signOut(sessionToken: string): Promise<{ success: boolean;
   try {
     // Create a client with the user's session token
     const { createClient } = await import('@supabase/supabase-js')
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const supabaseUrl = process.env.SUPABASE_URL
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_API_KEY
 
     if (!supabaseUrl || !supabaseAnonKey) {
       return { success: false, error: 'Configuration error' }

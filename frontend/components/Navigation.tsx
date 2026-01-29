@@ -4,17 +4,22 @@ import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Shield, Menu, X, LogOut } from 'lucide-react'
+import { Shield, Menu, X, LogOut, UserCircle } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 
 export default function Navigation() {
   const pathname = usePathname()
   const { user, isLoading, signOut } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [hash, setHash] = useState('')
+  const [mounted, setMounted] = useState(false)
 
   // Track URL hash changes
   useEffect(() => {
+    setMounted(true)
+    if (typeof window === 'undefined') return
+    
     const updateHash = () => setHash(window.location.hash)
     updateHash()
     window.addEventListener('hashchange', updateHash)
@@ -23,18 +28,51 @@ export default function Navigation() {
 
   // Also update hash when pathname changes (for navigation from other pages)
   useEffect(() => {
-    setHash(window.location.hash)
-  }, [pathname])
+    if (typeof window !== 'undefined' && mounted) {
+      setHash(window.location.hash)
+    }
+  }, [pathname, mounted])
+
+  // Close desktop profile menu on escape or outside click
+  useEffect(() => {
+    if (!profileMenuOpen || typeof window === 'undefined') return
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setProfileMenuOpen(false)
+    }
+
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null
+      if (!target) return
+      // Close unless the click is within the profile menu container
+      if (target.closest('[data-profile-menu-container]')) return
+      setProfileMenuOpen(false)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('mousedown', onMouseDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('mousedown', onMouseDown)
+    }
+  }, [profileMenuOpen])
 
   const isLoggedIn = !!user
   const isDocsPage = pathname === '/docs'
   const isPricingPage = pathname === '/pricing'
   const isHomePage = pathname === '/'
   const isHowItWorks = isHomePage && hash === '#how-it-works'
+  const isDashboardPage = pathname?.startsWith('/dashboard') || pathname?.startsWith('/admin')
+  
+  // Don't show navigation on dashboard pages (they have their own layout)
+  if (isDashboardPage) {
+    return null
+  }
 
   const handleSignOut = async () => {
     await signOut()
     setMobileMenuOpen(false)
+    setProfileMenuOpen(false)
   }
 
   // Get the appropriate "How it Works" link based on current page
@@ -84,27 +122,55 @@ export default function Navigation() {
           </Link>
         </div>
         
-        {/* Desktop CTA */}
-        <div className="hidden sm:flex items-center gap-4">
+        {/* Desktop CTA - Only show on md and above (when hamburger menu is hidden) */}
+        <div className="hidden md:flex items-center gap-4">
           {isLoading ? (
             /* Placeholder to prevent layout shift */
             <div className="w-20 h-8" />
           ) : isLoggedIn ? (
-            <>
-              <Link 
-                href={user?.role === 'super_admin' ? '/admin' : '/dashboard'}
-                className="text-sm text-silver hover:text-white transition-colors"
+            <div className="relative" data-profile-menu-container>
+              <button
+                type="button"
+                aria-label="Open profile menu"
+                aria-haspopup="menu"
+                aria-expanded={profileMenuOpen}
+                onClick={() => setProfileMenuOpen(v => !v)}
+                className="p-2 rounded-lg text-silver hover:text-white hover:bg-white/5 transition-colors"
               >
-                {user?.role === 'super_admin' ? 'Admin' : 'Dashboard'}
-              </Link>
-              <button 
-                onClick={handleSignOut}
-                className="text-sm text-silver hover:text-white transition-colors flex items-center gap-2"
-              >
-                <LogOut className="w-4 h-4" />
-                Sign Out
+                <UserCircle className="w-6 h-6" />
               </button>
-            </>
+
+              <AnimatePresence>
+                {profileMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.15 }}
+                    role="menu"
+                    className="absolute right-0 mt-2 w-48 rounded-xl border border-white/10 bg-black/95 backdrop-blur-md shadow-lg overflow-hidden"
+                  >
+                    <Link
+                      href={user?.role === 'super_admin' ? '/admin' : '/dashboard'}
+                      role="menuitem"
+                      onClick={() => setProfileMenuOpen(false)}
+                      className="block px-4 py-3 text-sm text-silver hover:text-white hover:bg-white/5 transition-colors"
+                    >
+                      {user?.role === 'super_admin' ? 'Admin Dashboard' : 'Dashboard'}
+                    </Link>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={handleSignOut}
+                      className="w-full text-left px-4 py-3 text-sm text-silver hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Sign Out
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           ) : (
             <>
               <Link href="/signin" className="text-sm text-silver hover:text-white transition-colors">
@@ -139,6 +205,15 @@ export default function Navigation() {
             className="md:hidden bg-black/95 border-t border-white/5"
           >
             <div className="px-4 py-6 space-y-4">
+              {!isLoading && isLoggedIn && (
+                <Link
+                  href={user?.role === 'super_admin' ? '/admin' : '/dashboard'}
+                  className="block text-base transition-colors text-silver hover:text-white"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {user?.role === 'super_admin' ? 'Admin Dashboard' : 'Dashboard'}
+                </Link>
+              )}
               <Link 
                 href={howItWorksHref}
                 className={`block text-base transition-colors ${
@@ -170,13 +245,6 @@ export default function Navigation() {
                 <div className="pt-4 border-t border-white/10 space-y-3">
                   {isLoggedIn ? (
                     <>
-                      <Link 
-                        href={user?.role === 'super_admin' ? '/admin' : '/dashboard'}
-                        className="block w-full text-left text-base text-silver hover:text-white transition-colors"
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        {user?.role === 'super_admin' ? 'Admin Dashboard' : 'Dashboard'}
-                      </Link>
                       <button 
                         onClick={handleSignOut}
                         className="w-full text-left text-base text-silver hover:text-white transition-colors flex items-center gap-2"

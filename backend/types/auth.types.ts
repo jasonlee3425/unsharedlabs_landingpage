@@ -7,7 +7,9 @@ export type UserRole = 'super_admin' | 'client'
 export interface SignUpRequest {
   email: string
   password: string
+  name?: string // Optional: user's display name
   companyName?: string // Optional: for client signups
+  inviteToken?: string // Optional: invitation token if signing up via invite
 }
 
 export interface SignInRequest {
@@ -21,6 +23,7 @@ export interface AuthResponse {
   user?: {
     id: string
     email: string
+    name?: string
     role?: UserRole
     companyId?: string
     companyName?: string
@@ -34,6 +37,7 @@ export interface AuthResponse {
 export interface User {
   id: string
   email: string
+  name?: string
   role?: UserRole
   companyId?: string
   companyName?: string

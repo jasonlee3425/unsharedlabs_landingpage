@@ -19,14 +19,14 @@ export interface AuthResponse {
 /**
  * Sign up a new user
  */
-export async function signUp(email: string, password: string, companyName?: string): Promise<AuthResponse> {
+export async function signUp(email: string, password: string, name?: string): Promise<AuthResponse> {
   try {
     const response = await fetch('/api/auth/signup', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email, password, companyName }),
+      body: JSON.stringify({ email, password, name }),
     })
 
     if (!response.ok) {
@@ -128,6 +128,7 @@ export async function signOut(): Promise<{ success: boolean; error?: string }> {
  * Get current user from localStorage
  */
 export function getCurrentUser(): { id: string; email: string } | null {
+  if (typeof window === 'undefined') return null
   try {
     const userStr = localStorage.getItem('sb-user')
     if (!userStr) return null
@@ -141,5 +142,6 @@ export function getCurrentUser(): { id: string; email: string } | null {
  * Get session token from localStorage
  */
 export function getSessionToken(): string | null {
+  if (typeof window === 'undefined') return null
   return localStorage.getItem('sb-access-token')
 }
