@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/DashboardLayout'
 import { useAuth } from '@/lib/auth-context'
 import { getSessionToken } from '@/lib/auth'
-import { Shield, Mail, Clock, CheckCircle, AlertTriangle, Edit, Globe, X, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react'
+import { Shield, Mail, Clock, CheckCircle, AlertTriangle, Edit, Globe, X, ChevronDown, ChevronUp, Copy, Check, Palette, ChevronRight } from 'lucide-react'
 
 interface PreventionSteps {
   step1: boolean
@@ -36,6 +37,7 @@ interface VerificationSettings {
 export default function PreventionPage() {
   const { user } = useAuth()
   const companyId = user?.companyId
+  const router = useRouter()
 
   const [verificationSettings, setVerificationSettings] = useState<VerificationSettings | null>(null)
   const [loading, setLoading] = useState(true)
@@ -520,8 +522,11 @@ export default function PreventionPage() {
       })
       const json = await res.json()
       if (json?.success) {
+        console.log(`Step ${step} marked as complete successfully`)
         await fetchVerificationSettings()
+        console.log('Verification settings refreshed')
       } else {
+        console.error('Failed to mark step complete:', json?.error)
         setVerificationError(json?.error || `Failed to mark step ${step} as complete`)
       }
     } catch (e: any) {
@@ -551,7 +556,7 @@ export default function PreventionPage() {
   
   // Check if steps can be marked complete (sequential requirement)
   const canMarkStep2 = step1Complete && !step2Complete
-  const canMarkStep3 = step2Complete && !step3Complete
+  const canMarkStep3 = !step3Complete // Step 3 can be completed independently
 
   // Helper to generate email domain from company name
   const getCompanyDomain = () => {
@@ -1775,58 +1780,80 @@ export default function PreventionPage() {
                 Customize the email template that gets sent out for account verification.
               </p>
 
-              <div className="p-4 rounded-lg mb-4" style={{ backgroundColor: 'var(--hover-bg)', borderColor: 'var(--border-color)', border: '1px solid' }}>
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard/company/email-template')}
+                className="w-full p-4 rounded-lg mb-4 text-left transition-all"
+                style={{ 
+                  backgroundColor: step3Complete ? 'rgba(16, 185, 129, 0.1)' : 'var(--hover-bg)', 
+                  borderColor: step3Complete ? '#10b981' : 'var(--border-color)', 
+                  border: `1px solid ${step3Complete ? '#10b981' : 'var(--border-color)'}`,
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => {
+                  if (!step3Complete) {
+                    e.currentTarget.style.backgroundColor = 'var(--active-bg)'
+                    e.currentTarget.style.borderColor = 'var(--border-strong)'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!step3Complete) {
+                    e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                    e.currentTarget.style.borderColor = 'var(--border-color)'
+                  } else {
+                    e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.1)'
+                    e.currentTarget.style.borderColor = '#10b981'
+                  }
+                }}
+              >
                 <div className="flex items-start gap-2">
-                  <Mail className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-primary)' }} />
+                  <Mail className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: step3Complete ? '#10b981' : 'var(--text-primary)' }} />
                   <div className="flex-1">
-                    <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-                      Email Configuration
-                    </h3>
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="text-sm font-semibold" style={{ color: step3Complete ? '#10b981' : 'var(--text-primary)' }}>
+                        Email Configuration
+                      </h3>
+                      {step3Complete && (
+                        <CheckCircle className="w-4 h-4" style={{ color: '#10b981' }} />
+                      )}
+                    </div>
                     <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
                       Configure the email template, subject line, and content for verification emails.
                     </p>
                     <p className="text-xs mt-2 italic" style={{ color: 'var(--text-tertiary)' }}>
-                      Email configuration options will be available here.
+                      {step3Complete ? 'Email template configured' : 'Click to customize your email template'}
                     </p>
                   </div>
+                  <ChevronRight className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: step3Complete ? '#10b981' : 'var(--text-tertiary)' }} />
                 </div>
-              </div>
+              </button>
 
               {!step3Complete && (
                 <div className="mt-4">
-                  {canMarkStep3 ? (
-                    <button
-                      type="button"
-                      onClick={() => handleMarkStepComplete(3)}
-                      disabled={isMarkingStepComplete === 3}
-                      className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
-                      style={{
-                        backgroundColor: isMarkingStepComplete === 3 ? 'var(--hover-bg)' : '#10b981',
-                        color: isMarkingStepComplete === 3 ? 'var(--text-tertiary)' : 'white',
-                        cursor: isMarkingStepComplete === 3 ? 'not-allowed' : 'pointer',
-                        opacity: isMarkingStepComplete === 3 ? 0.5 : 1,
-                      }}
-                    >
-                      {isMarkingStepComplete === 3 ? (
-                        <>
-                          <Clock className="w-4 h-4 animate-spin" />
-                          <span>Marking Complete...</span>
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="w-4 h-4" />
-                          <span>Mark as Complete</span>
-                        </>
-                      )}
-                    </button>
-                  ) : (
-                    <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
-                      <p className="text-xs flex items-center gap-2" style={{ color: 'var(--text-tertiary)' }}>
-                        <AlertTriangle className="w-4 h-4" />
-                        Complete Step 2 to proceed with email configuration.
-                      </p>
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleMarkStepComplete(3)}
+                    disabled={isMarkingStepComplete === 3}
+                    className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+                    style={{
+                      backgroundColor: isMarkingStepComplete === 3 ? 'var(--hover-bg)' : '#10b981',
+                      color: isMarkingStepComplete === 3 ? 'var(--text-tertiary)' : 'white',
+                      cursor: isMarkingStepComplete === 3 ? 'not-allowed' : 'pointer',
+                      opacity: isMarkingStepComplete === 3 ? 0.5 : 1,
+                    }}
+                  >
+                    {isMarkingStepComplete === 3 ? (
+                      <>
+                        <Clock className="w-4 h-4 animate-spin" />
+                        <span>Marking Complete...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Mark as Complete</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
               </>

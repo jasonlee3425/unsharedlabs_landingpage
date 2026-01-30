@@ -610,7 +610,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const getCurrentView = () => {
     if (pathname === '/dashboard/settings') return 'settings'
     if (pathname === '/dashboard/company/onboarding') return 'onboarding'
-    if (pathname === '/dashboard/company/prevention') return 'prevention'
+    if (pathname === '/dashboard/company/prevention' || pathname === '/dashboard/company/email-template') return 'prevention'
     if (pathname === '/dashboard/company') return 'company'
     if (pathname === '/docs' || pathname?.includes('/docs')) return 'documentation'
     return 'dashboard'

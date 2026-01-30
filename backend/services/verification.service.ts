@@ -148,6 +148,7 @@ export async function saveVerificationSettings(
     domain?: string
     domain_brevo_id?: string
     domain_dns_records?: any // JSONB to store all DNS records
+    email_template?: string // HTML email template
   }
 ) {
   try {
@@ -219,6 +220,13 @@ export async function saveVerificationSettings(
       updateData.domain_dns_records = existingSettings.domain_dns_records
     }
 
+    // Handle email_template
+    if (settings.email_template !== undefined) {
+      updateData.email_template = settings.email_template
+    } else if (existingSettings?.email_template) {
+      updateData.email_template = existingSettings.email_template
+    }
+
     const { data, error } = await supabaseAdmin
       .from('company_verification_settings')
       .upsert(updateData, {
@@ -275,12 +283,8 @@ export async function updatePreventionStep(
       }
     }
 
-    if (step === 3 && (!step1Complete || !preventionSteps.step2)) {
-      return {
-        success: false,
-        error: 'Please complete step 2 (Domain Set Up) first.',
-      }
-    }
+    // Step 3 can be completed independently (no prerequisite requirement)
+    // Removed step 2 requirement as per user request
 
     // Update the step completion status in JSONB
     preventionSteps[`step${step}`] = true
