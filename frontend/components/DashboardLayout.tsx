@@ -13,6 +13,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Copy,
   Check,
   Terminal,
@@ -25,7 +27,11 @@ import {
   Building2,
   Rocket,
   Home,
-  LogOut
+  LogOut,
+  Server,
+  Sparkles,
+  Smartphone,
+  Globe
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useTheme } from '@/lib/theme-context'
@@ -37,6 +43,9 @@ interface DashboardLayoutProps {
 // Documentation Content Component (same as /docs page)
 function DocumentationContent() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
+  const [activeTab, setActiveTab] = useState<'tech-stack' | 'ai'>('tech-stack')
+  const [selectedTechStack, setSelectedTechStack] = useState<string | null>('nodejs')
+  const [techStackSelectorCollapsed, setTechStackSelectorCollapsed] = useState(false)
 
   const copyToClipboard = (text: string, index: number) => {
     navigator.clipboard.writeText(text)
@@ -212,6 +221,84 @@ app.listen(3000, () => console.log("Server running on port 3000"));`
     </div>
   )
 
+  const techStacks = [
+    // Backend
+    { id: 'nodejs', name: 'Node.js', icon: Server, available: true, category: 'backend' },
+    { id: 'python', name: 'Python', icon: Server, available: false, category: 'backend' },
+    { id: 'ruby', name: 'Ruby', icon: Server, available: false, category: 'backend' },
+    { id: 'java', name: 'Java', icon: Server, available: false, category: 'backend' },
+    { id: 'go', name: 'Go', icon: Server, available: false, category: 'backend' },
+    // Frontend
+    { id: 'react', name: 'React', icon: Code2, available: false, category: 'frontend' },
+    { id: 'nextjs', name: 'Next.js', icon: Code2, available: false, category: 'frontend' },
+    { id: 'vue', name: 'Vue.js', icon: Code2, available: false, category: 'frontend' },
+    { id: 'angular', name: 'Angular', icon: Code2, available: false, category: 'frontend' },
+    { id: 'svelte', name: 'Svelte', icon: Code2, available: false, category: 'frontend' },
+    // Mobile
+    { id: 'react-native', name: 'React Native', icon: Smartphone, available: false, category: 'mobile' },
+    { id: 'flutter', name: 'Flutter', icon: Smartphone, available: false, category: 'mobile' },
+    { id: 'ios', name: 'iOS (Swift)', icon: Smartphone, available: false, category: 'mobile' },
+    { id: 'android', name: 'Android (Kotlin)', icon: Smartphone, available: false, category: 'mobile' },
+    // Miscellaneous
+    { id: 'wordpress', name: 'WordPress', icon: Globe, available: false, category: 'miscellaneous' },
+    { id: 'shopify', name: 'Shopify', icon: Globe, available: false, category: 'miscellaneous' },
+    { id: 'webflow', name: 'Webflow', icon: Globe, available: false, category: 'miscellaneous' },
+    { id: 'squarespace', name: 'Squarespace', icon: Globe, available: false, category: 'miscellaneous' },
+  ]
+
+  const aiInstructions = `# Unshared Labs Integration Guide for AI Agents
+
+## Overview
+Unshared Labs is a service that helps detect and prevent account sharing by analyzing user behavior patterns and requiring email verification when suspicious activity is detected.
+
+## Core Functionality
+- **Account Sharing Detection**: Analyzes user events (login, signup, page views) to identify potential account sharing
+- **Email Verification**: Sends 6-digit verification codes via email when users are flagged
+- **User Event Tracking**: Records and analyzes user behavior patterns
+
+## Integration Requirements
+1. **Client ID**: Unique identifier for your company (found in Admin Dashboard)
+2. **API Key**: Secret key for authenticating API requests (found in Admin Dashboard)
+3. **SDK Installation**: Install the appropriate SDK for your tech stack
+4. **Email Service Setup**: Configure sender email and domain authentication (done in Admin Dashboard)
+
+## Key Functions
+
+### processUserEvent()
+Called during user actions (login, signup, page views) to:
+- Record the user event
+- Analyze if the user is flagged for account sharing
+- Returns: \`{ analysis: { is_user_flagged: boolean } }\`
+
+### triggerEmailVerification()
+Sends a 6-digit verification code to the user's email when they are flagged.
+- Parameters: emailAddress, deviceId
+- Returns: \`{ success: boolean, verificationCode: string }\`
+
+### verify()
+Validates the 6-digit code entered by the user.
+- Parameters: emailAddress, deviceId, code
+- Returns: \`{ pass: boolean }\`
+
+## Implementation Flow
+1. Install SDK and initialize with Client ID and API Key
+2. Call \`processUserEvent()\` during login/signup
+3. If \`is_user_flagged === true\`:
+   - Display verification UI to user
+   - Call \`triggerEmailVerification()\`
+   - Collect 6-digit code from user
+   - Call \`verify()\` with the code
+4. If verification passes, allow user to continue
+
+## Important Notes
+- Email verification must be set up in Admin Dashboard before use
+- Domain authentication via DNS records is required
+- Verification codes expire after 10 minutes
+- Failed verifications can be retried
+
+## Support
+For integration help: support@unsharedlabs.com`
+
   return (
     <div className="p-6 sm:p-8">
       {/* Header */}
@@ -232,18 +319,264 @@ app.listen(3000, () => console.log("Server running on port 3000"));`
           {' '}
           <span style={{ color: 'var(--text-tertiary)' }}>Documentation</span>
         </h1>
-        <div className="flex items-center gap-4 mb-4 text-sm" style={{ color: 'var(--text-tertiary)' }}>
-          <span>Version: <code style={{ color: 'var(--text-primary)' }}>v1.0.14</code></span>
-          <span>•</span>
-          <span>Last Updated: <code style={{ color: 'var(--text-primary)' }}>Jan 12, 2026</code></span>
-        </div>
+        {activeTab === 'tech-stack' && selectedTechStack === 'nodejs' && (
+          <div className="flex items-center gap-4 mb-4 text-sm" style={{ color: 'var(--text-tertiary)' }}>
+            <span>Version: <code style={{ color: 'var(--text-primary)' }}>v1.0.14</code></span>
+            <span>•</span>
+            <span>Last Updated: <code style={{ color: 'var(--text-primary)' }}>Jan 12, 2026</code></span>
+          </div>
+        )}
         <p style={{ color: 'var(--text-tertiary)' }}>
-          Integrate the Unshared Labs Node.js backend SDK to detect account sharing, send user events, 
+          Integrate the Unshared Labs SDK to detect account sharing, send user events, 
           and handle email verification flows.
         </p>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-2 mb-6 border-b" style={{ borderColor: 'var(--border-color)' }}>
+        <button
+          onClick={() => {
+            setActiveTab('tech-stack')
+            setSelectedTechStack('nodejs')
+          }}
+          className="px-4 py-2 text-sm font-medium transition-all relative"
+          style={{
+            color: activeTab === 'tech-stack' ? 'var(--text-primary)' : 'var(--text-tertiary)',
+            borderBottom: activeTab === 'tech-stack' ? '2px solid var(--text-primary)' : '2px solid transparent',
+            marginBottom: '-2px'
+          }}
+        >
+          Tech Stack Docs
+        </button>
+        <button
+          onClick={() => setActiveTab('ai')}
+          className="px-4 py-2 text-sm font-medium transition-all relative"
+          style={{
+            color: activeTab === 'ai' ? 'var(--text-primary)' : 'var(--text-tertiary)',
+            borderBottom: activeTab === 'ai' ? '2px solid var(--text-primary)' : '2px solid transparent',
+            marginBottom: '-2px'
+          }}
+        >
+          <span className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4" />
+            Developing with AI
+          </span>
+        </button>
+      </div>
+
+      {/* Tech Stack Cards (only show when tech-stack tab is active) */}
+      {activeTab === 'tech-stack' && (
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Select Your Tech Stack
+            </h2>
+            <button
+              type="button"
+              onClick={() => setTechStackSelectorCollapsed(!techStackSelectorCollapsed)}
+              className="p-1 rounded transition-all"
+              style={{ color: 'var(--text-tertiary)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                e.currentTarget.style.color = 'var(--text-primary)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent'
+                e.currentTarget.style.color = 'var(--text-tertiary)'
+              }}
+            >
+              {techStackSelectorCollapsed ? (
+                <ChevronDown className="w-5 h-5" />
+              ) : (
+                <ChevronUp className="w-5 h-5" />
+              )}
+            </button>
+          </div>
+          
+          {!techStackSelectorCollapsed && (
+          <>
+          {/* Backend */}
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-tertiary)' }}>Backend</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+              {techStacks.filter(s => s.category === 'backend').map((stack) => {
+                const Icon = stack.icon
+                return (
+                  <button
+                    key={stack.id}
+                    onClick={() => stack.available && setSelectedTechStack(stack.id)}
+                    disabled={!stack.available}
+                    className="p-4 rounded-lg border text-left transition-all"
+                    style={{
+                      backgroundColor: selectedTechStack === stack.id ? 'var(--active-bg)' : 'var(--card-bg)',
+                      borderColor: selectedTechStack === stack.id ? 'var(--text-primary)' : 'var(--border-color)',
+                      opacity: stack.available ? 1 : 0.5,
+                      cursor: stack.available ? 'pointer' : 'not-allowed'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (stack.available && selectedTechStack !== stack.id) {
+                        e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (stack.available && selectedTechStack !== stack.id) {
+                        e.currentTarget.style.backgroundColor = 'var(--card-bg)'
+                      }
+                    }}
+                  >
+                    <Icon className="w-6 h-6 mb-2" style={{ color: 'var(--text-primary)' }} />
+                    <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                      {stack.name}
+                    </div>
+                    {!stack.available && (
+                      <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Coming Soon
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Frontend */}
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-tertiary)' }}>Frontend</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+              {techStacks.filter(s => s.category === 'frontend').map((stack) => {
+                const Icon = stack.icon
+                return (
+                  <button
+                    key={stack.id}
+                    onClick={() => stack.available && setSelectedTechStack(stack.id)}
+                    disabled={!stack.available}
+                    className="p-4 rounded-lg border text-left transition-all"
+                    style={{
+                      backgroundColor: selectedTechStack === stack.id ? 'var(--active-bg)' : 'var(--card-bg)',
+                      borderColor: selectedTechStack === stack.id ? 'var(--text-primary)' : 'var(--border-color)',
+                      opacity: stack.available ? 1 : 0.5,
+                      cursor: stack.available ? 'pointer' : 'not-allowed'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (stack.available && selectedTechStack !== stack.id) {
+                        e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (stack.available && selectedTechStack !== stack.id) {
+                        e.currentTarget.style.backgroundColor = 'var(--card-bg)'
+                      }
+                    }}
+                  >
+                    <Icon className="w-6 h-6 mb-2" style={{ color: 'var(--text-primary)' }} />
+                    <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                      {stack.name}
+                    </div>
+                    {!stack.available && (
+                      <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Coming Soon
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Mobile */}
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-tertiary)' }}>Mobile</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+              {techStacks.filter(s => s.category === 'mobile').map((stack) => {
+                const Icon = stack.icon
+                return (
+                  <button
+                    key={stack.id}
+                    onClick={() => stack.available && setSelectedTechStack(stack.id)}
+                    disabled={!stack.available}
+                    className="p-4 rounded-lg border text-left transition-all"
+                    style={{
+                      backgroundColor: selectedTechStack === stack.id ? 'var(--active-bg)' : 'var(--card-bg)',
+                      borderColor: selectedTechStack === stack.id ? 'var(--text-primary)' : 'var(--border-color)',
+                      opacity: stack.available ? 1 : 0.5,
+                      cursor: stack.available ? 'pointer' : 'not-allowed'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (stack.available && selectedTechStack !== stack.id) {
+                        e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (stack.available && selectedTechStack !== stack.id) {
+                        e.currentTarget.style.backgroundColor = 'var(--card-bg)'
+                      }
+                    }}
+                  >
+                    <Icon className="w-6 h-6 mb-2" style={{ color: 'var(--text-primary)' }} />
+                    <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                      {stack.name}
+                    </div>
+                    {!stack.available && (
+                      <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Coming Soon
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Miscellaneous */}
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-tertiary)' }}>Miscellaneous</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+              {techStacks.filter(s => s.category === 'miscellaneous').map((stack) => {
+                const Icon = stack.icon
+                return (
+                  <button
+                    key={stack.id}
+                    onClick={() => stack.available && setSelectedTechStack(stack.id)}
+                    disabled={!stack.available}
+                    className="p-4 rounded-lg border text-left transition-all"
+                    style={{
+                      backgroundColor: selectedTechStack === stack.id ? 'var(--active-bg)' : 'var(--card-bg)',
+                      borderColor: selectedTechStack === stack.id ? 'var(--text-primary)' : 'var(--border-color)',
+                      opacity: stack.available ? 1 : 0.5,
+                      cursor: stack.available ? 'pointer' : 'not-allowed'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (stack.available && selectedTechStack !== stack.id) {
+                        e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (stack.available && selectedTechStack !== stack.id) {
+                        e.currentTarget.style.backgroundColor = 'var(--card-bg)'
+                      }
+                    }}
+                  >
+                    <Icon className="w-6 h-6 mb-2" style={{ color: 'var(--text-primary)' }} />
+                    <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                      {stack.name}
+                    </div>
+                    {!stack.available && (
+                      <div className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Coming Soon
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          </>
+          )}
+        </div>
+      )}
+
       {/* Documentation Content */}
+      {activeTab === 'tech-stack' && selectedTechStack === 'nodejs' && (
       <div className="space-y-8">
         {/* Requirements */}
         <div className="space-y-4">
@@ -582,6 +915,29 @@ app.listen(3000, () => console.log("Server running on port 3000"));`
           </a>
         </div>
       </div>
+      )}
+
+      {/* Developing with AI Tab */}
+      {activeTab === 'ai' && (
+        <div className="space-y-6">
+          <div className="p-4 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid #3b82f6' }}>
+            <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
+              <strong>For AI Agents:</strong> Copy and paste the instructions below into your codebase or AI agent context to help it understand Unshared Labs and how to integrate it.
+            </p>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Sparkles className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
+              <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>AI Agent Instructions</h2>
+            </div>
+            <p style={{ color: 'var(--text-tertiary)' }}>
+              These markdown instructions provide context for AI coding assistants to understand Unshared Labs and help with integration.
+            </p>
+            <CodeBlock code={aiInstructions} index={100} language="markdown" />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

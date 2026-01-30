@@ -20,6 +20,8 @@ import {
   Shield,
   Smartphone,
   X,
+  Book,
+  ExternalLink,
 } from 'lucide-react'
 import DashboardLayout from '@/components/DashboardLayout'
 import { useAuth } from '@/lib/auth-context'
@@ -1246,6 +1248,14 @@ export default function OnboardingPage() {
 
             <StepCard stepId="integrate" stepNumber={2} title="Integrate Event Tracking" description="Add event tracking to your Next.js API routes" stackType="nextjs">
               <div className="space-y-4">
+                <div className="p-3 rounded-lg mb-4" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid #3b82f6' }}>
+                  <p className="text-xs flex items-start gap-2" style={{ color: 'var(--text-primary)' }}>
+                    <Book className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>
+                      <strong>Tip:</strong> For complete examples and API reference, check the <strong>Documentation</strong> tab in the sidebar.
+                    </span>
+                  </p>
+                </div>
                 <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
                   Add event tracking in your Next.js API routes (e.g., <code className="px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>/app/api/auth/login/route.ts</code>).
                 </p>
@@ -1820,6 +1830,14 @@ export async function POST(req: Request) {
 
           <StepCard stepId="integrate" stepNumber={4} title="Integrate Event Tracking" description="Send key events like login/signup/content access">
             <div className="space-y-4">
+              <div className="p-3 rounded-lg mb-4" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid #3b82f6' }}>
+                <p className="text-xs flex items-start gap-2" style={{ color: 'var(--text-primary)' }}>
+                  <Book className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <span>
+                    <strong>Tip:</strong> For complete examples and API reference, check the <strong>Documentation</strong> tab in the sidebar.
+                  </span>
+                </p>
+              </div>
               <div className="p-4 rounded-lg font-mono text-sm" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border-color)' }}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
@@ -1852,14 +1870,25 @@ export async function POST(req: Request) {
                 <pre className="break-all overflow-x-auto" style={{ color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', overflowWrap: 'anywhere', maxWidth: '100%' }}>{`if (result.analysis.is_user_flagged) {\n  await unshared_labs_client.triggerEmailVerification(\n    emailAddress,\n    deviceId\n  );\n}`}</pre>
               </div>
 
-              <p className="text-sm flex items-center gap-2" style={{ color: 'var(--text-tertiary)' }}>
-                <Mail className="w-4 h-4" />
-                Need help? Email{' '}
-                <a href="mailto:support@unsharedlabs.com" className="underline" style={{ color: 'var(--text-primary)' }}>
-                  support@unsharedlabs.com
-                </a>
-                .
-              </p>
+              <div className="space-y-3">
+                <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid #3b82f6' }}>
+                  <p className="text-sm mb-2" style={{ color: 'var(--text-primary)' }}>
+                    <Book className="w-4 h-4 inline mr-2" />
+                    <strong>Need more examples?</strong>
+                  </p>
+                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                    Check out the <strong>Documentation</strong> tab in the sidebar for complete code examples, API reference, and integration guides.
+                  </p>
+                </div>
+                <p className="text-sm flex items-center gap-2" style={{ color: 'var(--text-tertiary)' }}>
+                  <Mail className="w-4 h-4" />
+                  Still need help? Email{' '}
+                  <a href="mailto:support@unsharedlabs.com" className="underline" style={{ color: 'var(--text-primary)' }}>
+                    support@unsharedlabs.com
+                  </a>
+                  .
+                </p>
+              </div>
             </div>
           </StepCard>
 
