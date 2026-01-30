@@ -70,7 +70,7 @@ export async function PATCH(
   try {
     const { companyId } = params
     const body = await request.json()
-    const { name } = body
+    const { name, website_url } = body
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -100,7 +100,7 @@ export async function PATCH(
 
     // Use the authenticated Supabase client from auth helper
     // Update company using service
-    const { company, error: updateError } = await updateCompany(user.supabase, companyId, name)
+    const { company, error: updateError } = await updateCompany(user.supabase, companyId, name, website_url)
 
     if (updateError || !company) {
       return NextResponse.json(

@@ -149,16 +149,6 @@ export default function PreventionPage() {
     }
   }, [companyId])
 
-  // Debug: Log state changes
-  useEffect(() => {
-    console.log('State updated:', { 
-      verificationEmail, 
-      verificationName, 
-      emailLength: verificationEmail?.length,
-      nameLength: verificationName?.length 
-    })
-  }, [verificationEmail, verificationName])
-
   const fetchVerificationSettings = async () => {
     if (!companyId) return
     const token = getSessionToken()
@@ -212,21 +202,16 @@ export default function PreventionPage() {
 
   // Create sender for account verification
   const handleCreateSender = async () => {
-    console.log('handleCreateSender called', { companyId, verificationEmail, verificationName })
-    
     if (!companyId || !verificationEmail || !verificationName) {
-      console.error('Missing required fields:', { companyId, verificationEmail, verificationName })
       setVerificationError('Please fill in both email and name fields')
       return
     }
     const token = getSessionToken()
     if (!token) {
-      console.error('No session token found')
       setVerificationError('Not authenticated. Please sign in again.')
       return
     }
 
-    console.log('Creating sender with:', { email: verificationEmail, name: verificationName })
     setIsCreatingSender(true)
     setVerificationError(null)
 
@@ -244,7 +229,6 @@ export default function PreventionPage() {
       })
       
       const json = await res.json()
-      console.log('Create sender response:', { status: res.status, json })
       
       if (json?.success) {
         setSenderCreated(true)
@@ -253,7 +237,6 @@ export default function PreventionPage() {
         await fetchVerificationSettings()
       } else {
         const errorMsg = json?.error || 'Failed to create sender'
-        console.error('Failed to create sender:', errorMsg)
         setVerificationError(errorMsg)
       }
     } catch (e: any) {
@@ -536,11 +519,8 @@ export default function PreventionPage() {
       })
       const json = await res.json()
       if (json?.success) {
-        console.log(`Step ${step} marked as complete successfully`)
         await fetchVerificationSettings()
-        console.log('Verification settings refreshed')
       } else {
-        console.error('Failed to mark step complete:', json?.error)
         setVerificationError(json?.error || `Failed to mark step ${step} as complete`)
       }
     } catch (e: any) {
@@ -1065,7 +1045,6 @@ export default function PreventionPage() {
                           type="text"
                           value={verificationName || ''}
                           onChange={(e) => {
-                            console.log('Name input changed:', e.target.value)
                             setVerificationName(e.target.value)
                           }}
                           placeholder={senderNamePlaceholder}
@@ -1089,7 +1068,6 @@ export default function PreventionPage() {
                           type="email"
                           value={verificationEmail || ''}
                           onChange={(e) => {
-                            console.log('Email input changed:', e.target.value)
                             setVerificationEmail(e.target.value)
                           }}
                           placeholder={senderEmailPlaceholder}
@@ -1110,15 +1088,6 @@ export default function PreventionPage() {
                         onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
-                          console.log('Button clicked', { 
-                            verificationEmail, 
-                            verificationName, 
-                            emailLength: verificationEmail?.length,
-                            nameLength: verificationName?.length,
-                            emailTruthy: !!verificationEmail,
-                            nameTruthy: !!verificationName,
-                            isCreatingSender 
-                          })
                           handleCreateSender()
                         }}
                         disabled={!verificationEmail?.trim() || !verificationName?.trim() || isCreatingSender}

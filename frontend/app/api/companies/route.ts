@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name } = body
+    const { name, website_url } = body
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Use backend service to create company (uses authenticated user's Supabase client)
-    const { company, error } = await createCompany(supabase, name, user.id)
+    const { company, error } = await createCompany(supabase, name, user.id, website_url)
 
     if (error || !company) {
       console.error('❌ Company creation failed:', {

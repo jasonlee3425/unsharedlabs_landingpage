@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
     // Get company info
     const { data: company, error: companyError } = await supabase
       .from('companies')
-      .select('id, name, logo_url, created_at')
+      .select('id, name, logo_url, website_url, created_at')
       .eq('id', userProfile.company_id)
       .single()
 

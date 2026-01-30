@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest, hasCompanyAccess, isCompanyAdmin } from '@backend/lib/auth-helper'
-import { getVerificationSettings, saveVerificationSettings } from '@backend/services/verification.service'
+import { 
+  getVerificationSettings, 
+  saveVerificationSettings,
+  validateBrevoDomain,
+  createBrevoDomain
+} from '@backend/services/verification.service'
 
 /**
  * GET /api/companies/[companyId]/verification/domain
@@ -42,123 +47,69 @@ export async function GET(
       )
     }
 
-    // Verify BREVO_API_KEY is configured
-    const brevoApiKey = process.env.BREVO_API_KEY
-    if (!brevoApiKey) {
-      console.error('❌ BREVO_API_KEY not configured in environment variables')
+    // Validate domain using backend service
+    const validationResult = await validateBrevoDomain(verificationSettings.domain)
+    
+    if (!validationResult.success) {
       return NextResponse.json(
-        { success: false, error: 'Email service configuration error. BREVO_API_KEY is not set.' },
+        { success: false, error: validationResult.error },
         { status: 500 }
       )
     }
 
-    try {
-      // Call Brevo API to validate domain
-      // Endpoint: GET https://api.brevo.com/v3/senders/domains/{domainName}
-      const domainName = encodeURIComponent(verificationSettings.domain)
-      const brevoResponse = await fetch(`https://api.brevo.com/v3/senders/domains/${domainName}`, {
-        method: 'GET',
-        headers: {
-          'accept': 'application/json',
-          'api-key': brevoApiKey,
+    const brevoData = validationResult.data!
+
+    // Get stored DNS records to include constructed records
+    const { data: storedSettings } = await getVerificationSettings(companyId)
+    let allDnsRecords = storedSettings?.domain_dns_records || null
+
+    // If we have stored DNS records, merge with validation status from Brevo
+    if (allDnsRecords && brevoData.dns_records) {
+      // Update status from Brevo validation response
+      if (allDnsRecords.dkim_txt && brevoData.dns_records.dkim_record) {
+        allDnsRecords.dkim_txt.status = brevoData.dns_records.dkim_record.status
+      }
+      if (allDnsRecords.brevo_code && brevoData.dns_records.brevo_code) {
+        allDnsRecords.brevo_code.status = brevoData.dns_records.brevo_code.status
+      }
+    } else if (brevoData.dns_records && storedSettings?.domain) {
+      // If we don't have stored records but have a domain, construct them
+      const domainName = storedSettings.domain
+      const domainForDkim = domainName.replace(/\./g, '-')
+      allDnsRecords = {
+        dkim_txt: brevoData.dns_records.dkim_record || null,
+        brevo_code: brevoData.dns_records.brevo_code || null,
+        dkim1_cname: {
+          type: 'CNAME',
+          name: 'brevo1._domainkey',
+          value: `b1.${domainForDkim}.dkim.brevo.com`,
+          host_name: 'brevo1._domainkey',
         },
-      })
-
-      const brevoData = await brevoResponse.json()
-
-      if (!brevoResponse.ok) {
-        console.error('❌ Brevo API error:', {
-          status: brevoResponse.status,
-          statusText: brevoResponse.statusText,
-          error: brevoData,
-        })
-        
-        let errorMessage = 'Failed to validate domain'
-        if (brevoData.message) {
-          errorMessage = brevoData.message
-        } else if (brevoResponse.status === 404) {
-          errorMessage = 'Domain does not exist in Brevo'
-        } else if (brevoResponse.status === 401) {
-          errorMessage = 'Invalid Brevo API key'
-        }
-        
-        return NextResponse.json(
-          { 
-            success: false, 
-            error: errorMessage
-          },
-          { status: brevoResponse.status }
-        )
+        dkim2_cname: {
+          type: 'CNAME',
+          name: 'brevo2._domainkey',
+          value: `b2.${domainForDkim}.dkim.brevo.com`,
+          host_name: 'brevo2._domainkey',
+        },
+        dmarc_txt: {
+          type: 'TXT',
+          name: '_dmarc',
+          value: 'v=DMARC1; p=none; rua=mailto:rua@dmarc.brevo.com',
+          host_name: '_dmarc',
+        },
       }
+    }
 
-      // Get stored DNS records to include constructed records
-      const { data: storedSettings } = await getVerificationSettings(companyId)
-      let allDnsRecords = storedSettings?.domain_dns_records || null
-
-      // If we have stored DNS records, merge with validation status from Brevo
-      if (allDnsRecords && brevoData.dns_records) {
-        // Update status from Brevo validation response
-        if (allDnsRecords.dkim_txt && brevoData.dns_records.dkim_record) {
-          allDnsRecords.dkim_txt.status = brevoData.dns_records.dkim_record.status
-        }
-        if (allDnsRecords.brevo_code && brevoData.dns_records.brevo_code) {
-          allDnsRecords.brevo_code.status = brevoData.dns_records.brevo_code.status
-        }
-      } else if (brevoData.dns_records && storedSettings?.domain) {
-        // If we don't have stored records but have a domain, construct them
-        const domainName = storedSettings.domain
-        const domainForDkim = domainName.replace(/\./g, '-')
-        allDnsRecords = {
-          dkim_txt: brevoData.dns_records.dkim_record || null,
-          brevo_code: brevoData.dns_records.brevo_code || null,
-          dkim1_cname: {
-            type: 'CNAME',
-            name: 'brevo1._domainkey',
-            value: `b1.${domainForDkim}.dkim.brevo.com`,
-            host_name: 'brevo1._domainkey',
-          },
-          dkim2_cname: {
-            type: 'CNAME',
-            name: 'brevo2._domainkey',
-            value: `b2.${domainForDkim}.dkim.brevo.com`,
-            host_name: 'brevo2._domainkey',
-          },
-          dmarc_txt: {
-            type: 'TXT',
-            name: '_dmarc',
-            value: 'v=DMARC1; p=none; rua=mailto:rua@dmarc.brevo.com',
-            host_name: '_dmarc',
-          },
-        }
-      }
-
-      console.log('✅ Domain validation successful:', {
+    return NextResponse.json({
+      success: true,
+      data: {
         domain: brevoData.domain,
-        verified: brevoData.verified,
-        authenticated: brevoData.authenticated
-      })
-
-      return NextResponse.json({
-        success: true,
-        data: {
-          domain: brevoData.domain,
-          verified: brevoData.verified || false,
-          authenticated: brevoData.authenticated || false,
-          dns_records: allDnsRecords || brevoData.dns_records || null,
-        }
-      })
-    } catch (brevoError: any) {
-      console.error('❌ Error calling Brevo API:', brevoError)
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: brevoError.message || 'Failed to communicate with email service' 
-        },
-        { status: 500 }
-      )
-    }
+        verified: brevoData.verified || false,
+        authenticated: brevoData.authenticated || false,
+        dns_records: allDnsRecords || brevoData.dns_records || null,
+      }
+    })
   } catch (error: any) {
-    console.error('Error in GET /api/companies/[companyId]/verification/domain:', error)
     return NextResponse.json(
       { success: false, error: error.message || 'Internal server error' },
       { status: 500 }
@@ -214,63 +165,17 @@ export async function POST(
       )
     }
 
-    // Verify BREVO_API_KEY is configured
-    const brevoApiKey = process.env.BREVO_API_KEY
-    if (!brevoApiKey) {
-      console.error('❌ BREVO_API_KEY not configured in environment variables')
+    // Create domain using backend service
+    const createResult = await createBrevoDomain(domain)
+    
+    if (!createResult.success) {
       return NextResponse.json(
-        { success: false, error: 'Email service configuration error. BREVO_API_KEY is not set.' },
+        { success: false, error: createResult.error },
         { status: 500 }
       )
     }
 
-    try {
-      // Call Brevo API to add domain
-      // Endpoint: POST https://api.brevo.com/v3/senders/domains
-      // Request body: { "name": "example.com" }
-      // Response includes DNS records immediately
-      
-      const brevoResponse = await fetch('https://api.brevo.com/v3/senders/domains', {
-        method: 'POST',
-        headers: {
-          'accept': 'application/json',
-          'api-key': brevoApiKey,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: domain.trim(),
-        }),
-      })
-
-      const brevoData = await brevoResponse.json()
-
-      if (!brevoResponse.ok) {
-        console.error('❌ Brevo API error:', {
-          status: brevoResponse.status,
-          statusText: brevoResponse.statusText,
-          error: brevoData,
-        })
-        
-        // Handle specific error cases
-        let errorMessage = 'Failed to add domain to Brevo'
-        if (brevoData.message) {
-          errorMessage = brevoData.message
-        } else if (brevoData.error) {
-          errorMessage = brevoData.error
-        } else if (brevoResponse.status === 401) {
-          errorMessage = 'Invalid Brevo API key. Please check BREVO_API_KEY in environment variables.'
-        } else if (brevoResponse.status === 400) {
-          errorMessage = brevoData.message || 'Invalid domain or notification email format'
-        }
-        
-        return NextResponse.json(
-          { 
-            success: false, 
-            error: errorMessage
-          },
-          { status: brevoResponse.status }
-        )
-      }
+    const brevoData = createResult.data!
 
       // Extract domain ID and DNS records from response
       // Response structure from Brevo API:
@@ -327,18 +232,11 @@ export async function POST(
       })
 
       if (dbError) {
-        console.error('❌ Error saving domain settings:', dbError)
         return NextResponse.json(
           { success: false, error: 'Failed to save domain configuration' },
           { status: 500 }
         )
       }
-
-      console.log('✅ Domain setup successful:', {
-        domain: domain.trim(),
-        domainId,
-        hasDnsRecords: !!allDnsRecords
-      })
 
       return NextResponse.json({
         success: true,
@@ -349,18 +247,7 @@ export async function POST(
           dns_records: allDnsRecords,
         }
       })
-    } catch (brevoError: any) {
-      console.error('❌ Error calling Brevo API:', brevoError)
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: brevoError.message || 'Failed to communicate with email service' 
-        },
-        { status: 500 }
-      )
-    }
   } catch (error: any) {
-    console.error('Error in POST /api/companies/[companyId]/verification/domain:', error)
     return NextResponse.json(
       { success: false, error: error.message || 'Internal server error' },
       { status: 500 }

@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { Building2, UserPlus, Users, Mail, User, X, Trash2, Shield, Edit2, Upload, Image as ImageIcon } from 'lucide-react'
+import { getSessionToken } from '@/lib/auth'
+import { Building2, UserPlus, Users, Mail, User, X, Trash2, Shield, Edit2, Upload, Image as ImageIcon, CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import DashboardLayout from '@/components/DashboardLayout'
 
 interface TeamMember {
@@ -19,6 +20,7 @@ interface Company {
   id: string
   name: string
   logo_url?: string | null
+  website_url?: string | null
   created_at: string
 }
 
@@ -54,10 +56,19 @@ export default function CompanyPage() {
   const [isEditingCompanyName, setIsEditingCompanyName] = useState(false)
   const [editCompanyName, setEditCompanyName] = useState('')
   const [isUpdatingCompanyName, setIsUpdatingCompanyName] = useState(false)
+  const [isEditingWebsite, setIsEditingWebsite] = useState(false)
+  const [editWebsite, setEditWebsite] = useState('')
+  const [isUpdatingWebsite, setIsUpdatingWebsite] = useState(false)
+  const [companyWebsite, setCompanyWebsite] = useState('')
+  const [isCancellingInvitation, setIsCancellingInvitation] = useState<string | null>(null)
   const [isUploadingLogo, setIsUploadingLogo] = useState(false)
   const [isDeletingLogo, setIsDeletingLogo] = useState(false)
   const [logoError, setLogoError] = useState<string | null>(null)
   const [isDraggingOver, setIsDraggingOver] = useState(false)
+  const [acceptingInvitation, setAcceptingInvitation] = useState<PendingInvitation | null>(null)
+  const [isAcceptingInvitation, setIsAcceptingInvitation] = useState(false)
+  const [acceptInvitationStatus, setAcceptInvitationStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  const [acceptInvitationMessage, setAcceptInvitationMessage] = useState('')
 
   // Check if user is a company admin
   const isCompanyAdmin = user?.companyId && company && 
@@ -97,6 +108,67 @@ export default function CompanyPage() {
     } catch (error) {
       console.error('Error fetching pending invitations:', error)
       setMyPendingInvitations([])
+    }
+  }
+
+  const handleAcceptInvitation = async () => {
+    if (!acceptingInvitation || !(acceptingInvitation as any).token) return
+
+    setIsAcceptingInvitation(true)
+    setAcceptInvitationStatus('idle')
+    setAcceptInvitationMessage('')
+
+    try {
+      const sessionToken = localStorage.getItem('sb-access-token')
+      if (!sessionToken) {
+        setAcceptInvitationStatus('error')
+        setAcceptInvitationMessage('Not authenticated. Please sign in again.')
+        return
+      }
+
+      const response = await fetch('/api/invite/accept', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ token: (acceptingInvitation as any).token }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setAcceptInvitationStatus('error')
+        setAcceptInvitationMessage(data.error || `Failed to accept invitation (${response.status})`)
+        return
+      }
+
+      if (data.success) {
+        setAcceptInvitationStatus('success')
+        setAcceptInvitationMessage('Invitation accepted successfully!')
+        
+        // Refresh user to get updated company info
+        await refreshUser()
+        
+        // Refresh company data and pending invitations
+        await fetchCompanyData()
+        await fetchMyPendingInvitations()
+        
+        // Close modal after a short delay
+        setTimeout(() => {
+          setAcceptingInvitation(null)
+          setAcceptInvitationStatus('idle')
+          setAcceptInvitationMessage('')
+        }, 2000)
+      } else {
+        setAcceptInvitationStatus('error')
+        setAcceptInvitationMessage(data.error || 'Failed to accept invitation')
+      }
+    } catch (error) {
+      setAcceptInvitationStatus('error')
+      setAcceptInvitationMessage('An error occurred while accepting the invitation')
+    } finally {
+      setIsAcceptingInvitation(false)
     }
   }
 
@@ -166,7 +238,10 @@ export default function CompanyPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${sessionToken}`,
         },
-        body: JSON.stringify({ name: companyName.trim() }),
+        body: JSON.stringify({ 
+          name: companyName.trim(),
+          website_url: companyWebsite.trim() || null
+        }),
       })
 
       let data
@@ -182,6 +257,7 @@ export default function CompanyPage() {
         setCompany(data.company)
         setShowCreateCompany(false)
         setCompanyName('')
+        setCompanyWebsite('')
         // Refresh user to get updated companyId
         await refreshUser()
         // Fetch members
@@ -426,7 +502,10 @@ export default function CompanyPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${sessionToken}`,
         },
-        body: JSON.stringify({ name: editCompanyName.trim() }),
+        body: JSON.stringify({ 
+          name: editCompanyName.trim(),
+          website_url: company.website_url || null
+        }),
       })
 
       const data = await response.json()
@@ -445,6 +524,112 @@ export default function CompanyPage() {
       alert('An error occurred while updating the company name')
     } finally {
       setIsUpdatingCompanyName(false)
+    }
+  }
+
+  const handleStartEditWebsite = () => {
+    if (company) {
+      setEditWebsite(company.website_url || '')
+      setIsEditingWebsite(true)
+    }
+  }
+
+  const handleCancelEditWebsite = () => {
+    setIsEditingWebsite(false)
+    setEditWebsite('')
+  }
+
+  const handleUpdateWebsite = async () => {
+    if (!company) {
+      handleCancelEditWebsite()
+      return
+    }
+
+    const newWebsite = editWebsite.trim() || null
+    if (newWebsite === (company.website_url || null)) {
+      handleCancelEditWebsite()
+      return
+    }
+
+    setIsUpdatingWebsite(true)
+    try {
+      const sessionToken = localStorage.getItem('sb-access-token')
+      if (!sessionToken) {
+        alert('Not authenticated. Please sign in again.')
+        return
+      }
+
+      const response = await fetch(`/api/companies/${company.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ 
+          name: company.name,
+          website_url: newWebsite
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.company) {
+        setCompany(data.company)
+        setIsEditingWebsite(false)
+        setEditWebsite('')
+      } else {
+        alert(data.error || 'Failed to update website')
+      }
+    } catch (error) {
+      console.error('Error updating website:', error)
+      alert('An error occurred while updating the website')
+    } finally {
+      setIsUpdatingWebsite(false)
+    }
+  }
+
+  const handleCancelInvitation = async (invitationId: string) => {
+    setIsCancellingInvitation(invitationId)
+    try {
+      const sessionToken = getSessionToken()
+      if (!sessionToken) {
+        alert('Not authenticated. Please sign in again.')
+        setIsCancellingInvitation(null)
+        return
+      }
+
+      const response = await fetch(`/api/invite/cancel?invitationId=${invitationId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${sessionToken}`,
+        },
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        console.error('Cancel invitation failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: data.error
+        })
+        alert(data.error || `Failed to cancel invitation (${response.status})`)
+        setIsCancellingInvitation(null)
+        return
+      }
+
+      if (data.success) {
+        // Refresh invitations list
+        await fetchCompanyData()
+      } else {
+        console.error('Failed to cancel invitation:', data.error)
+        alert(data.error || 'Failed to cancel invitation')
+      }
+    } catch (error) {
+      console.error('Error cancelling invitation:', error)
+      alert('An error occurred while cancelling the invitation')
+    } finally {
+      setIsCancellingInvitation(null)
     }
   }
 
@@ -725,7 +910,9 @@ export default function CompanyPage() {
                   </div>
                   <button
                     onClick={() => {
-                      window.location.href = `/invite/accept?token=${(invitation as any).token}`
+                      setAcceptingInvitation(invitation)
+                      setAcceptInvitationStatus('idle')
+                      setAcceptInvitationMessage('')
                     }}
                     className="px-4 py-2 rounded-lg transition-all"
                     style={{
@@ -773,6 +960,32 @@ export default function CompanyPage() {
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Enter company name"
+                  className="w-full px-4 py-2 rounded-lg border-2"
+                  style={{
+                    backgroundColor: 'var(--input-bg, #ffffff)',
+                    borderColor: 'var(--border-strong)',
+                    color: 'var(--text-primary)'
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && companyName.trim()) {
+                      handleCreateCompany()
+                    }
+                  }}
+                />
+              </div>
+              
+              <div>
+                <label 
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Website URL (Optional)
+                </label>
+                <input
+                  type="url"
+                  value={companyWebsite}
+                  onChange={(e) => setCompanyWebsite(e.target.value)}
+                  placeholder="https://example.com"
                   className="w-full px-4 py-2 rounded-lg border-2"
                   style={{
                     backgroundColor: 'var(--input-bg, #ffffff)',
@@ -909,14 +1122,6 @@ export default function CompanyPage() {
                       )}
                     </div>
                   )}
-                  <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                    Company ID: {company.id}
-                  </p>
-                  {logoError && (
-                    <div className="mt-2 p-2 rounded text-xs" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444' }}>
-                      <p style={{ color: '#ef4444' }}>{logoError}</p>
-                    </div>
-                  )}
                 </div>
               </div>
               {isCompanyAdmin && !isEditingCompanyName && (
@@ -946,6 +1151,109 @@ export default function CompanyPage() {
                 </button>
               )}
             </div>
+            {/* Website */}
+            <div className="mt-3">
+              {isEditingWebsite ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="url"
+                    value={editWebsite}
+                    onChange={(e) => setEditWebsite(e.target.value)}
+                    placeholder="https://example.com"
+                    className="px-3 py-1 rounded-lg border-2 text-sm"
+                    style={{
+                      backgroundColor: 'var(--input-bg, var(--card-bg))',
+                      borderColor: 'var(--border-strong)',
+                      color: 'var(--text-primary)',
+                      flex: 1
+                    }}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleUpdateWebsite()
+                      } else if (e.key === 'Escape') {
+                        handleCancelEditWebsite()
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={handleUpdateWebsite}
+                    disabled={isUpdatingWebsite}
+                    className="px-3 py-1 rounded-lg transition-all text-sm"
+                    style={{
+                      backgroundColor: '#10b981',
+                      color: 'white',
+                      opacity: isUpdatingWebsite ? 0.5 : 1
+                    }}
+                  >
+                    {isUpdatingWebsite ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={handleCancelEditWebsite}
+                    disabled={isUpdatingWebsite}
+                    className="px-3 py-1 rounded-lg transition-all text-sm"
+                    style={{
+                      backgroundColor: 'var(--hover-bg)',
+                      borderColor: 'var(--border-strong)',
+                      color: 'var(--text-primary)',
+                      border: '1px solid var(--border-strong)'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  {company.website_url ? (
+                    <a
+                      href={company.website_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm transition-all"
+                      style={{ color: '#3b82f6' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.textDecoration = 'underline'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.textDecoration = 'none'
+                      }}
+                    >
+                      {company.website_url}
+                    </a>
+                  ) : (
+                    <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                      No website set
+                    </span>
+                  )}
+                  {isCompanyAdmin && (
+                    <button
+                      onClick={handleStartEditWebsite}
+                      className="p-1 rounded transition-all"
+                      style={{ color: 'var(--text-tertiary)' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                        e.currentTarget.style.color = 'var(--text-primary)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent'
+                        e.currentTarget.style.color = 'var(--text-tertiary)'
+                      }}
+                      title="Edit website"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+            <p className="text-sm mt-3" style={{ color: 'var(--text-tertiary)' }}>
+              Company ID: {company.id}
+            </p>
+            {logoError && (
+              <div className="mt-2 p-2 rounded text-xs" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444' }}>
+                <p style={{ color: '#ef4444' }}>{logoError}</p>
+              </div>
+            )}
             <div className="flex items-center gap-4 text-sm" style={{ color: 'var(--text-tertiary)' }}>
               <span>Created: {new Date(company.created_at).toLocaleDateString()}</span>
               <span>•</span>
@@ -1130,6 +1438,29 @@ export default function CompanyPage() {
                       </div>
                     </div>
                   </div>
+                  {isCompanyAdmin && (
+                    <button
+                      onClick={() => handleCancelInvitation(invitation.id)}
+                      disabled={isCancellingInvitation === invitation.id}
+                      className="px-3 py-1.5 rounded-lg transition-all text-sm disabled:opacity-50"
+                      style={{
+                        backgroundColor: '#dc3545',
+                        color: 'white'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isCancellingInvitation) {
+                          e.currentTarget.style.backgroundColor = '#c82333'
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isCancellingInvitation) {
+                          e.currentTarget.style.backgroundColor = '#dc3545'
+                        }
+                      }}
+                    >
+                      {isCancellingInvitation === invitation.id ? 'Cancelling...' : 'Cancel'}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -1480,6 +1811,124 @@ export default function CompanyPage() {
           </div>
         )}
 
+        {/* Accept Invitation Modal */}
+        {acceptingInvitation && (
+          <div 
+            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+            onClick={() => {
+              if (acceptInvitationStatus !== 'success' && !isAcceptingInvitation) {
+                setAcceptingInvitation(null)
+                setAcceptInvitationStatus('idle')
+                setAcceptInvitationMessage('')
+              }
+            }}
+          >
+            <div 
+              className="rounded-lg border-2 p-6 max-w-md w-full shadow-2xl"
+              style={{
+                backgroundColor: 'var(--modal-bg)',
+                borderColor: 'var(--border-strong)'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {acceptInvitationStatus === 'idle' && !isAcceptingInvitation && (
+                <>
+                  <h3 
+                    className="text-xl font-semibold mb-4"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    Accept Invitation
+                  </h3>
+                  <p className="mb-6" style={{ color: 'var(--text-tertiary)' }}>
+                    You are about to accept an invitation to join{' '}
+                    <strong style={{ color: 'var(--text-primary)' }}>
+                      {(acceptingInvitation as any).companies?.name || 'this company'}
+                    </strong>
+                    {' '}as {acceptingInvitation.company_role === 'admin' ? 'an Admin' : 'a Member'}.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setAcceptingInvitation(null)
+                        setAcceptInvitationStatus('idle')
+                        setAcceptInvitationMessage('')
+                      }}
+                      className="flex-1 px-4 py-2 rounded-lg transition-all"
+                      style={{
+                        backgroundColor: 'var(--hover-bg)',
+                        color: 'var(--text-primary)'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleAcceptInvitation}
+                      className="flex-1 px-4 py-2 rounded-lg transition-all"
+                      style={{
+                        backgroundColor: 'var(--active-bg)',
+                        color: 'var(--text-primary)'
+                      }}
+                    >
+                      Accept
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {isAcceptingInvitation && (
+                <div className="text-center py-4">
+                  <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin" style={{ color: 'var(--text-primary)' }} />
+                  <p style={{ color: 'var(--text-tertiary)' }}>Processing invitation...</p>
+                </div>
+              )}
+
+              {acceptInvitationStatus === 'success' && (
+                <div className="text-center py-4">
+                  <CheckCircle className="w-16 h-16 mx-auto mb-4" style={{ color: '#28a745' }} />
+                  <h3 
+                    className="text-xl font-semibold mb-2"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    Invitation Accepted!
+                  </h3>
+                  <p style={{ color: 'var(--text-tertiary)' }}>{acceptInvitationMessage}</p>
+                </div>
+              )}
+
+              {acceptInvitationStatus === 'error' && (
+                <>
+                  <div className="text-center py-4">
+                    <XCircle className="w-16 h-16 mx-auto mb-4" style={{ color: '#dc3545' }} />
+                    <h3 
+                      className="text-xl font-semibold mb-2"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      Error
+                    </h3>
+                    <p className="mb-6" style={{ color: 'var(--text-tertiary)' }}>
+                      {acceptInvitationMessage}
+                    </p>
+                    <button
+                      onClick={() => {
+                        setAcceptingInvitation(null)
+                        setAcceptInvitationStatus('idle')
+                        setAcceptInvitationMessage('')
+                      }}
+                      className="w-full px-4 py-2 rounded-lg transition-all"
+                      style={{
+                        backgroundColor: 'var(--active-bg)',
+                        color: 'var(--text-primary)'
+                      }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Delete Company Confirmation Modal */}
         {showDeleteModal && (
           <div 
@@ -1546,7 +1995,7 @@ export default function CompanyPage() {
             </div>
           </div>
         )}
-          </>
+        </>
         )}
       </div>
     </DashboardLayout>

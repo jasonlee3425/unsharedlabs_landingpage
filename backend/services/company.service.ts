@@ -11,18 +11,25 @@ import type { Company } from '../types/auth.types'
  * @param supabaseClient - Authenticated Supabase client (with user session)
  * @param name - Company name
  * @param userId - User ID who is creating the company
+ * @param websiteUrl - Optional company website URL
  */
 export async function createCompany(
   supabaseClient: SupabaseClient,
   name: string,
-  userId: string
+  userId: string,
+  websiteUrl?: string | null
 ): Promise<{ company: Company | null; error?: string }> {
   try {
     // Create company in companies table
+    const companyData: any = { name: name.trim() }
+    if (websiteUrl && websiteUrl.trim()) {
+      companyData.website_url = websiteUrl.trim()
+    }
+    
     const { data: newCompany, error: companyError } = await supabaseClient
       .from('companies')
-      .insert({ name: name.trim() })
-      .select('id, name, created_at, updated_at')
+      .insert(companyData)
+      .select('id, name, website_url, created_at, updated_at')
       .single()
 
     if (companyError || !newCompany) {
@@ -76,22 +83,32 @@ export async function createCompany(
 }
 
 /**
- * Update company name
+ * Update company name and/or website
  * @param supabaseClient - Authenticated Supabase client (with user session)
  * @param companyId - Company ID to update
  * @param name - New company name
+ * @param websiteUrl - Optional new company website URL
  */
 export async function updateCompany(
   supabaseClient: SupabaseClient,
   companyId: string,
-  name: string
+  name: string,
+  websiteUrl?: string | null
 ): Promise<{ company: Company | null; error?: string }> {
   try {
+    const updateData: any = { 
+      name: name.trim(), 
+      updated_at: new Date().toISOString() 
+    }
+    if (websiteUrl !== undefined) {
+      updateData.website_url = websiteUrl && websiteUrl.trim() ? websiteUrl.trim() : null
+    }
+    
     const { data: updatedCompany, error: updateError } = await supabaseClient
       .from('companies')
-      .update({ name: name.trim(), updated_at: new Date().toISOString() })
+      .update(updateData)
       .eq('id', companyId)
-      .select('id, name, created_at, updated_at')
+      .select('id, name, website_url, created_at, updated_at')
       .single()
 
     if (updateError || !updatedCompany) {

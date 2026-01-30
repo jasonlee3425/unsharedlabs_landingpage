@@ -307,3 +307,227 @@ export async function updatePreventionStep(
     }
   }
 }
+
+/**
+ * Brevo API integration functions
+ */
+
+export interface BrevoDomainResponse {
+  domain: string
+  verified: boolean
+  authenticated: boolean
+  dns_records?: {
+    dkim_record?: {
+      type: string
+      value: string
+      host_name: string
+      status: boolean
+    }
+    brevo_code?: {
+      type: string
+      value: string
+      host_name: string
+      status: boolean
+    }
+  }
+}
+
+export interface BrevoCreateDomainResponse {
+  id: string
+  domain_name: string
+  message: string
+  dns_records: {
+    dkim_record: {
+      type: string
+      value: string
+      host_name: string
+      status: boolean
+    }
+    brevo_code: {
+      type: string
+      value: string
+      host_name: string
+      status: boolean
+    }
+  }
+}
+
+export interface BrevoAuthenticateResponse {
+  domain_name: string
+  message: string
+}
+
+/**
+ * Validate domain configuration with Brevo
+ */
+export async function validateBrevoDomain(domainName: string): Promise<{
+  success: boolean
+  data?: BrevoDomainResponse
+  error?: string
+}> {
+  try {
+    const brevoApiKey = process.env.BREVO_API_KEY
+    if (!brevoApiKey) {
+      return {
+        success: false,
+        error: 'Email service configuration error. BREVO_API_KEY is not set.',
+      }
+    }
+
+    const encodedDomain = encodeURIComponent(domainName)
+    const response = await fetch(`https://api.brevo.com/v3/senders/domains/${encodedDomain}`, {
+      method: 'GET',
+      headers: {
+        'accept': 'application/json',
+        'api-key': brevoApiKey,
+      },
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      let errorMessage = 'Failed to validate domain'
+      if (data.message) {
+        errorMessage = data.message
+      } else if (response.status === 404) {
+        errorMessage = 'Domain does not exist in Brevo'
+      } else if (response.status === 401) {
+        errorMessage = 'Invalid Brevo API key'
+      }
+      return {
+        success: false,
+        error: errorMessage,
+      }
+    }
+
+    return {
+      success: true,
+      data: data as BrevoDomainResponse,
+    }
+  } catch (error: any) {
+    console.error('Error validating Brevo domain:', error)
+    return {
+      success: false,
+      error: error.message || 'Failed to communicate with email service',
+    }
+  }
+}
+
+/**
+ * Create a new domain in Brevo
+ */
+export async function createBrevoDomain(domain: string): Promise<{
+  success: boolean
+  data?: BrevoCreateDomainResponse
+  error?: string
+}> {
+  try {
+    const brevoApiKey = process.env.BREVO_API_KEY
+    if (!brevoApiKey) {
+      return {
+        success: false,
+        error: 'Email service configuration error. BREVO_API_KEY is not set.',
+      }
+    }
+
+    const response = await fetch('https://api.brevo.com/v3/senders/domains', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': brevoApiKey,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: domain.trim(),
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      let errorMessage = 'Failed to add domain to Brevo'
+      if (data.message) {
+        errorMessage = data.message
+      } else if (data.error) {
+        errorMessage = data.error
+      } else if (response.status === 401) {
+        errorMessage = 'Invalid Brevo API key. Please check BREVO_API_KEY in environment variables.'
+      } else if (response.status === 400) {
+        errorMessage = data.message || 'Invalid domain format'
+      }
+      return {
+        success: false,
+        error: errorMessage,
+      }
+    }
+
+    return {
+      success: true,
+      data: data as BrevoCreateDomainResponse,
+    }
+  } catch (error: any) {
+    console.error('Error creating Brevo domain:', error)
+    return {
+      success: false,
+      error: error.message || 'Failed to communicate with email service',
+    }
+  }
+}
+
+/**
+ * Authenticate a domain in Brevo
+ */
+export async function authenticateBrevoDomain(domainName: string): Promise<{
+  success: boolean
+  data?: BrevoAuthenticateResponse
+  error?: string
+}> {
+  try {
+    const brevoApiKey = process.env.BREVO_API_KEY
+    if (!brevoApiKey) {
+      return {
+        success: false,
+        error: 'Email service configuration error. BREVO_API_KEY is not set.',
+      }
+    }
+
+    const encodedDomain = encodeURIComponent(domainName)
+    const response = await fetch(`https://api.brevo.com/v3/senders/domains/${encodedDomain}/authenticate`, {
+      method: 'PUT',
+      headers: {
+        'accept': 'application/json',
+        'api-key': brevoApiKey,
+      },
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      let errorMessage = 'Failed to authenticate domain'
+      if (data.message) {
+        errorMessage = data.message
+      } else if (response.status === 404) {
+        errorMessage = 'Domain does not exist in Brevo'
+      } else if (response.status === 400) {
+        errorMessage = data.message || 'Bad request. DNS records may not be configured correctly.'
+      } else if (response.status === 401) {
+        errorMessage = 'Invalid Brevo API key'
+      }
+      return {
+        success: false,
+        error: errorMessage,
+      }
+    }
+
+    return {
+      success: true,
+      data: data as BrevoAuthenticateResponse,
+    }
+  } catch (error: any) {
+    console.error('Error authenticating Brevo domain:', error)
+    return {
+      success: false,
+      error: error.message || 'Failed to communicate with email service',
+    }
+  }
+}

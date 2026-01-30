@@ -1246,7 +1246,7 @@ export default function OnboardingPage() {
               </div>
             </StepCard>
 
-            <StepCard stepId="integrate" stepNumber={2} title="Integrate Event Tracking" description="Add event tracking to your Next.js API routes" stackType="nextjs">
+            <StepCard stepId="integrate" stepNumber={2} title="Integrate Event Tracking" description="Add event tracking to your Next.js API routes to detect account sharing" stackType="nextjs">
               <div className="space-y-4">
                 <div className="p-3 rounded-lg mb-4" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid #3b82f6' }}>
                   <p className="text-xs flex items-start gap-2" style={{ color: 'var(--text-primary)' }}>
@@ -1256,13 +1256,82 @@ export default function OnboardingPage() {
                     </span>
                   </p>
                 </div>
-                <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                  Add event tracking in your Next.js API routes (e.g., <code className="px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>/app/api/auth/login/route.ts</code>).
-                </p>
-                <div className="p-4 rounded-lg font-mono text-sm relative" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border-color)' }}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Example: Next.js API Route</span>
-                    <CopyButton text={`import UnsharedLabsClient from 'unshared-clientjs-sdk'
+
+                {/* Function Signature */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Function Signature</h4>
+                  <div className="p-4 rounded-lg font-mono text-sm" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border-color)' }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                        processUserEvent()
+                      </span>
+                      <CopyButton
+                        text={`processUserEvent(\n  eventType: string,\n  userId: string,\n  ipAddress: string,\n  deviceId: string,\n  sessionHash: string,\n  userAgent: string,\n  emailAddress: string,\n  subscriptionStatus?: string | null,\n  eventDetails?: Map<string, any> | null\n): Promise<any>`}
+                        field="nextjsEventSignature"
+                        label="Signature"
+                      />
+                    </div>
+                    <pre style={{ color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap', fontSize: '0.75rem' }}>{`processUserEvent(
+  eventType: string,
+  userId: string,
+  ipAddress: string,
+  deviceId: string,
+  sessionHash: string,
+  userAgent: string,
+  emailAddress: string,
+  subscriptionStatus?: string | null,
+  eventDetails?: Map<string, any> | null
+): Promise<any>`}</pre>
+                  </div>
+                </div>
+
+                {/* Parameters */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Parameters</h4>
+                  <div className="space-y-2 text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                      <div className="font-mono font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>eventType</div>
+                      <div className="text-xs">Type: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>string</code></div>
+                      <div className="text-xs mt-1">The type of event (e.g., 'login', 'signup', 'page_view', 'content_access')</div>
+                    </div>
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                      <div className="font-mono font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>ipAddress</div>
+                      <div className="text-xs">Type: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>string</code></div>
+                      <div className="text-xs mt-1">Get from <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>req.headers.get('x-forwarded-for')</code> or <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>req.headers.get('x-real-ip')</code></div>
+                    </div>
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                      <div className="font-mono font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>deviceId</div>
+                      <div className="text-xs">Type: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>string</code></div>
+                      <div className="text-xs mt-1">Get from <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>req.headers.get('x-device-id')</code></div>
+                    </div>
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                      <div className="font-mono font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>sessionHash</div>
+                      <div className="text-xs">Type: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>string</code></div>
+                      <div className="text-xs mt-1">Get from <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>req.headers.get('x-session-hash')</code></div>
+                    </div>
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                      <div className="font-mono font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>userAgent</div>
+                      <div className="text-xs">Type: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>string</code></div>
+                      <div className="text-xs mt-1">Get from <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>req.headers.get('user-agent')</code></div>
+                    </div>
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                      <div className="font-mono font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>subscriptionStatus</div>
+                      <div className="text-xs">Type: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>string | null</code> (optional)</div>
+                      <div className="text-xs mt-1">Values: 'paid', 'free', 'free trial', 'discounted', or 'other'</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Example */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Example: Next.js API Route</h4>
+                  <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                    Add event tracking in your Next.js API routes (e.g., <code className="px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>/app/api/auth/login/route.ts</code>).
+                  </p>
+                  <div className="p-4 rounded-lg font-mono text-sm relative" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border-color)' }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Next.js API Route</span>
+                      <CopyButton text={`import UnsharedLabsClient from 'unshared-clientjs-sdk'
 
 const client = new UnsharedLabsClient({
   clientId: process.env.UNSHARED_LABS_CLIENT_ID!,
@@ -1272,7 +1341,7 @@ const client = new UnsharedLabsClient({
 export async function POST(req: Request) {
   const { userId, email } = await req.json()
   
-  await client.processUserEvent(
+  const result = await client.processUserEvent(
     'login',
     userId,
     req.headers.get('x-forwarded-for') || '',
@@ -1283,10 +1352,14 @@ export async function POST(req: Request) {
     'paid'
   )
   
+  if (result.analysis.is_user_flagged) {
+    // Handle flagged user
+  }
+  
   return Response.json({ success: true })
 }`} field="nextjsIntegrate" label="Code" />
-                  </div>
-                  <pre style={{ color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap' }}>
+                    </div>
+                    <pre style={{ color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap', fontSize: '0.75rem' }}>
 {`import UnsharedLabsClient from 'unshared-clientjs-sdk'
 
 const client = new UnsharedLabsClient({
@@ -1297,7 +1370,7 @@ const client = new UnsharedLabsClient({
 export async function POST(req: Request) {
   const { userId, email } = await req.json()
   
-  await client.processUserEvent(
+  const result = await client.processUserEvent(
     'login',
     userId,
     req.headers.get('x-forwarded-for') || '',
@@ -1308,9 +1381,45 @@ export async function POST(req: Request) {
     'paid'
   )
   
+  if (result.analysis.is_user_flagged) {
+    // Handle flagged user
+  }
+  
   return Response.json({ success: true })
 }`}
-                  </pre>
+                    </pre>
+                  </div>
+                </div>
+
+                {/* Response Structure */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Response Structure</h4>
+                  <div className="p-4 rounded-lg font-mono text-sm" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border-color)' }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                        Response Object
+                      </span>
+                      <CopyButton
+                        text={`{\n  "success": true,\n  "event": {\n    "data": [...],\n    "status": "success"\n  },\n  "analysis": {\n    "status": "success",\n    "is_user_flagged": true\n  }\n}`}
+                        field="nextjsEventResponse"
+                        label="Response"
+                      />
+                    </div>
+                    <pre style={{ color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap', fontSize: '0.75rem' }}>{`{
+  "success": true,
+  "event": {
+    "data": [...],
+    "status": "success"
+  },
+  "analysis": {
+    "status": "success",
+    "is_user_flagged": true
+  }
+}`}</pre>
+                  </div>
+                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                    Check <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>result.analysis.is_user_flagged</code> to determine if the user should be verified. See the <strong>Documentation</strong> tab for handling flagged users.
+                  </p>
                 </div>
               </div>
             </StepCard>
@@ -1828,7 +1937,7 @@ export async function POST(req: Request) {
             </div>
           </StepCard>
 
-          <StepCard stepId="integrate" stepNumber={4} title="Integrate Event Tracking" description="Send key events like login/signup/content access">
+          <StepCard stepId="integrate" stepNumber={4} title="Integrate Event Tracking" description="Send key events like login/signup/content access to detect account sharing">
             <div className="space-y-4">
               <div className="p-3 rounded-lg mb-4" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid #3b82f6' }}>
                 <p className="text-xs flex items-start gap-2" style={{ color: 'var(--text-primary)' }}>
@@ -1838,36 +1947,296 @@ export async function POST(req: Request) {
                   </span>
                 </p>
               </div>
-              <div className="p-4 rounded-lg font-mono text-sm" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border-color)' }}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                    Example: Login Event
-                  </span>
-                  <CopyButton
-                    text={`await unshared_labs_client.processUserEvent(\n  'login',\n  userId,\n  ipAddress,\n  deviceId,\n  sessionHash,\n  userAgent,\n  emailAddress,\n  'paid'\n);`}
-                    field="event"
-                    label="Code"
-                  />
+
+              {/* Function Signature */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Function Signature</h4>
+                <div className="p-4 rounded-lg font-mono text-sm" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border-color)' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      processUserEvent()
+                    </span>
+                    <CopyButton
+                      text={`processUserEvent(\n  eventType: string,\n  userId: string,\n  ipAddress: string,\n  deviceId: string,\n  sessionHash: string,\n  userAgent: string,\n  emailAddress: string,\n  subscriptionStatus?: string | null,\n  eventDetails?: Map<string, any> | null\n): Promise<any>`}
+                      field="eventSignature"
+                      label="Signature"
+                    />
+                  </div>
+                  <pre style={{ color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap', fontSize: '0.75rem' }}>{`processUserEvent(
+  eventType: string,
+  userId: string,
+  ipAddress: string,
+  deviceId: string,
+  sessionHash: string,
+  userAgent: string,
+  emailAddress: string,
+  subscriptionStatus?: string | null,
+  eventDetails?: Map<string, any> | null
+): Promise<any>`}</pre>
                 </div>
-                <pre style={{ color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap' }}>{`await unshared_labs_client.processUserEvent(\n  'login',\n  userId,\n  ipAddress,\n  deviceId,\n  sessionHash,\n  userAgent,\n  emailAddress,\n  'paid'\n);`}</pre>
+              </div>
+
+              {/* Parameters */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Parameters</h4>
+                <div className="space-y-2 text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                    <div className="font-mono font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>eventType</div>
+                    <div className="text-xs">Type: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>string</code></div>
+                    <div className="text-xs mt-1">The type of event (e.g., 'login', 'signup', 'page_view', 'content_access')</div>
+                  </div>
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                    <div className="font-mono font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>userId</div>
+                    <div className="text-xs">Type: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>string</code></div>
+                    <div className="text-xs mt-1">Unique identifier for the user</div>
+                  </div>
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                    <div className="font-mono font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>ipAddress</div>
+                    <div className="text-xs">Type: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>string</code></div>
+                    <div className="text-xs mt-1">User's IP address (e.g., from <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>req.ip</code> or <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>req.headers['x-forwarded-for']</code>)</div>
+                  </div>
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                    <div className="font-mono font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>deviceId</div>
+                    <div className="text-xs">Type: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>string</code></div>
+                    <div className="text-xs mt-1">Unique device identifier (e.g., from <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>req.headers['x-device-id']</code>)</div>
+                  </div>
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                    <div className="font-mono font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>sessionHash</div>
+                    <div className="text-xs">Type: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>string</code></div>
+                    <div className="text-xs mt-1">Session identifier (e.g., from <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>req.headers['x-session-hash']</code>)</div>
+                  </div>
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                    <div className="font-mono font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>userAgent</div>
+                    <div className="text-xs">Type: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>string</code></div>
+                    <div className="text-xs mt-1">Browser user agent string (e.g., from <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>req.headers['user-agent']</code>)</div>
+                  </div>
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                    <div className="font-mono font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>emailAddress</div>
+                    <div className="text-xs">Type: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>string</code></div>
+                    <div className="text-xs mt-1">User's email address</div>
+                  </div>
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                    <div className="font-mono font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>subscriptionStatus</div>
+                    <div className="text-xs">Type: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>string | null</code> (optional)</div>
+                    <div className="text-xs mt-1">Subscription status: 'paid', 'free', 'free trial', 'discounted', or 'other'</div>
+                  </div>
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                    <div className="font-mono font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>eventDetails</div>
+                    <div className="text-xs">Type: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>Map&lt;string, any&gt; | null</code> (optional)</div>
+                    <div className="text-xs mt-1">Additional event metadata (e.g., <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>new Map([['source', 'web']])</code>)</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Example */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Example: Login Event</h4>
+                <div className="p-4 rounded-lg font-mono text-sm" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border-color)' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      Express.js Route Handler
+                    </span>
+                    <CopyButton
+                      text={`app.post("/login", async (req, res) => {\n  const { userId, emailAddress } = req.body;\n\n  const result = await unshared_labs_client.processUserEvent(\n    "login",\n    userId,\n    req.ip,\n    req.headers["x-device-id"]?.toString() || "unknown-device",\n    req.headers["x-session-hash"]?.toString() || "unknown-session",\n    req.headers["user-agent"] || "",\n    emailAddress,\n    "paid"\n  );\n\n  if (result.analysis.is_user_flagged) {\n    // Handle flagged user\n  }\n\n  res.status(200).json({ message: "Login successful" });\n});`}
+                      field="eventExample"
+                      label="Code"
+                    />
+                  </div>
+                  <pre style={{ color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap', fontSize: '0.75rem' }}>{`app.post("/login", async (req, res) => {
+  const { userId, emailAddress } = req.body;
+
+  const result = await unshared_labs_client.processUserEvent(
+    "login",
+    userId,
+    req.ip,
+    req.headers["x-device-id"]?.toString() || "unknown-device",
+    req.headers["x-session-hash"]?.toString() || "unknown-session",
+    req.headers["user-agent"] || "",
+    emailAddress,
+    "paid"
+  );
+
+  if (result.analysis.is_user_flagged) {
+    // Handle flagged user
+  }
+
+  res.status(200).json({ message: "Login successful" });
+});`}</pre>
+                </div>
+              </div>
+
+              {/* Response Structure */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Response Structure</h4>
+                <div className="p-4 rounded-lg font-mono text-sm" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border-color)' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      Response Object
+                    </span>
+                    <CopyButton
+                      text={`{\n  "success": true,\n  "event": {\n    "data": [...],\n    "status": "success"\n  },\n  "analysis": {\n    "status": "success",\n    "is_user_flagged": true\n  }\n}`}
+                      field="eventResponse"
+                      label="Response"
+                    />
+                  </div>
+                  <pre style={{ color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap', fontSize: '0.75rem' }}>{`{
+  "success": true,
+  "event": {
+    "data": [...],
+    "status": "success"
+  },
+  "analysis": {
+    "status": "success",
+    "is_user_flagged": true
+  }
+}`}</pre>
+                </div>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  Check <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>result.analysis.is_user_flagged</code> to determine if the user should be verified.
+                </p>
               </div>
             </div>
           </StepCard>
 
-          <StepCard stepId="handle" stepNumber={5} title="Handle Flagged Users" description="Trigger verification when a user is flagged">
+          <StepCard stepId="handle" stepNumber={5} title="Handle Flagged Users" description="Trigger email verification when a user is flagged for potential account sharing">
             <div className="space-y-4">
-              <div className="p-4 rounded-lg font-mono text-sm overflow-hidden" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border-color)' }}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                    Example
-                  </span>
-                  <CopyButton
-                    text={`if (result.analysis.is_user_flagged) {\n  await unshared_labs_client.triggerEmailVerification(\n    emailAddress,\n    deviceId\n  );\n}`}
-                    field="flagged"
-                    label="Code"
-                  />
+              {/* Function Signature */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Function Signature</h4>
+                <div className="p-4 rounded-lg font-mono text-sm" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border-color)' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      triggerEmailVerification()
+                    </span>
+                    <CopyButton
+                      text={`triggerEmailVerification(\n  emailAddress: string,\n  deviceId: string\n): Promise<any>`}
+                      field="triggerSignature"
+                      label="Signature"
+                    />
+                  </div>
+                  <pre style={{ color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap', fontSize: '0.75rem' }}>{`triggerEmailVerification(
+  emailAddress: string,
+  deviceId: string
+): Promise<any>`}</pre>
                 </div>
-                <pre className="break-all overflow-x-auto" style={{ color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', overflowWrap: 'anywhere', maxWidth: '100%' }}>{`if (result.analysis.is_user_flagged) {\n  await unshared_labs_client.triggerEmailVerification(\n    emailAddress,\n    deviceId\n  );\n}`}</pre>
+              </div>
+
+              {/* Parameters */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Parameters</h4>
+                <div className="space-y-2 text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                    <div className="font-mono font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>emailAddress</div>
+                    <div className="text-xs">Type: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>string</code></div>
+                    <div className="text-xs mt-1">The email address of the flagged user to send verification code to</div>
+                  </div>
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                    <div className="font-mono font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>deviceId</div>
+                    <div className="text-xs">Type: <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>string</code></div>
+                    <div className="text-xs mt-1">The device identifier associated with the flagged user</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Complete Example */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Complete Example</h4>
+                <div className="p-4 rounded-lg font-mono text-sm overflow-hidden" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border-color)' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      Express.js Route Handler
+                    </span>
+                    <CopyButton
+                      text={`app.post("/login", async (req, res) => {\n  const { userId, emailAddress } = req.body;\n\n  const result = await unshared_labs_client.processUserEvent(\n    "login",\n    userId,\n    req.ip,\n    req.headers["x-device-id"]?.toString() || "unknown-device",\n    req.headers["x-session-hash"]?.toString() || "unknown-session",\n    req.headers["user-agent"] || "",\n    emailAddress,\n    "paid"\n  );\n\n  if (result.analysis.is_user_flagged) {\n    // Trigger email verification\n    await unshared_labs_client.triggerEmailVerification(\n      emailAddress,\n      req.headers["x-device-id"]?.toString() || "unknown-device"\n    );\n    return res.status(200).json({ \n      message: "Verification required",\n      requiresVerification: true \n    });\n  }\n\n  res.status(200).json({ message: "Login successful" });\n});`}
+                      field="flaggedExample"
+                      label="Code"
+                    />
+                  </div>
+                  <pre className="break-all overflow-x-auto" style={{ color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', overflowWrap: 'anywhere', maxWidth: '100%', fontSize: '0.75rem' }}>{`app.post("/login", async (req, res) => {
+  const { userId, emailAddress } = req.body;
+
+  const result = await unshared_labs_client.processUserEvent(
+    "login",
+    userId,
+    req.ip,
+    req.headers["x-device-id"]?.toString() || "unknown-device",
+    req.headers["x-session-hash"]?.toString() || "unknown-session",
+    req.headers["user-agent"] || "",
+    emailAddress,
+    "paid"
+  );
+
+  if (result.analysis.is_user_flagged) {
+    // Trigger email verification
+    await unshared_labs_client.triggerEmailVerification(
+      emailAddress,
+      req.headers["x-device-id"]?.toString() || "unknown-device"
+    );
+    return res.status(200).json({ 
+      message: "Verification required",
+      requiresVerification: true 
+    });
+  }
+
+  res.status(200).json({ message: "Login successful" });
+});`}</pre>
+                </div>
+              </div>
+
+              {/* Response Structure */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Response Structure</h4>
+                <div className="p-4 rounded-lg font-mono text-sm" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border-color)' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      Response Object
+                    </span>
+                    <CopyButton
+                      text={`{\n  "success": true,\n  "message": "Email sent successfully",\n  "verificationCode": "123456"\n}`}
+                      field="triggerResponse"
+                      label="Response"
+                    />
+                  </div>
+                  <pre style={{ color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap', fontSize: '0.75rem' }}>{`{
+  "success": true,
+  "message": "Email sent successfully",
+  "verificationCode": "123456"
+}`}</pre>
+                </div>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  The response includes a 6-digit verification code that was sent to the user's email. You can use this for testing or display it to the user if needed.
+                </p>
+              </div>
+
+              {/* Verification Function */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Verify Code</h4>
+                <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                  After sending the verification email, use the <code className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--code-bg)' }}>verify()</code> function to validate the code entered by the user:
+                </p>
+                <div className="p-4 rounded-lg font-mono text-sm" style={{ backgroundColor: 'var(--code-bg)', border: '1px solid var(--border-color)' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      verify()
+                    </span>
+                    <CopyButton
+                      text={`const result = await unshared_labs_client.verify(\n  emailAddress,\n  deviceId,\n  code\n);\n\nif (result.pass) {\n  // Verification successful\n} else {\n  // Verification failed\n}`}
+                      field="verifyExample"
+                      label="Code"
+                    />
+                  </div>
+                  <pre style={{ color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap', fontSize: '0.75rem' }}>{`const result = await unshared_labs_client.verify(
+  emailAddress,
+  deviceId,
+  code
+);
+
+if (result.pass) {
+  // Verification successful
+} else {
+  // Verification failed
+}`}</pre>
+                </div>
               </div>
 
               <div className="space-y-3">
