@@ -571,6 +571,142 @@ export default function Dashboard() {
               )}
             </div>
 
+            {/* Top Flagged Accounts Table */}
+            <div 
+              className="p-6 rounded-lg border-2 mb-8"
+              style={{
+                backgroundColor: 'var(--card-bg)',
+                borderColor: 'var(--border-strong)'
+              }}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  Top Flagged Accounts
+                </h3>
+                <button
+                  onClick={() => toggleSection('flaggedAccounts')}
+                  className="p-1 rounded transition-all"
+                  style={{ color: 'var(--text-tertiary)' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                    e.currentTarget.style.color = 'var(--text-primary)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent'
+                    e.currentTarget.style.color = 'var(--text-tertiary)'
+                  }}
+                >
+                  {collapsedSections.flaggedAccounts ? (
+                    <ChevronDown className="w-5 h-5" />
+                  ) : (
+                    <ChevronUp className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+              
+              {!collapsedSections.flaggedAccounts && (
+                <>
+                  {/* Search Input */}
+                  <div className="mb-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+                  <input
+                    type="text"
+                    placeholder="Search by email, risk level, or evidence..."
+                    value={flaggedAccountsSearch}
+                    onChange={(e) => setFlaggedAccountsSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border-2"
+                    style={{
+                      backgroundColor: 'var(--input-bg, #ffffff)',
+                      borderColor: 'var(--border-strong)',
+                      color: 'var(--text-primary)'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
+                      <th className="text-left py-3 px-4 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        Email
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        Risk Level
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        Score
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        Potential Borrowers
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        Evidence
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      const filteredAccounts = companyData.top_flagged_accounts.data
+                        .filter(account => {
+                          if (flaggedAccountsSearch === '') return true
+                          const searchLower = flaggedAccountsSearch.toLowerCase()
+                          return (
+                            account.user_email.toLowerCase().includes(searchLower) ||
+                            account.risk_level.toLowerCase().includes(searchLower) ||
+                            account.evidence_summary.toLowerCase().includes(searchLower)
+                          )
+                        })
+                      
+                      if (filteredAccounts.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={5} className="py-8 text-center" style={{ color: 'var(--text-tertiary)' }}>
+                              No accounts found matching "{flaggedAccountsSearch}"
+                            </td>
+                          </tr>
+                        )
+                      }
+                      
+                      return filteredAccounts.map((account, index) => (
+                        <tr
+                          key={index}
+                          style={{ borderBottom: '1px solid var(--border-color)' }}
+                        >
+                          <td className="py-3 px-4 text-sm" style={{ color: 'var(--text-primary)' }}>
+                            {account.user_email}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span
+                              className="px-2 py-1 rounded-full text-xs font-medium"
+                              style={{
+                                backgroundColor: account.risk_level === 'Critical' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                                color: account.risk_level === 'Critical' ? '#ef4444' : '#f59e0b'
+                              }}
+                            >
+                              {account.risk_level}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                            {account.score.toLocaleString()}
+                          </td>
+                          <td className="py-3 px-4 text-sm" style={{ color: 'var(--text-primary)' }}>
+                            {account.potential_borrowers}
+                          </td>
+                          <td className="py-3 px-4 text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                            {account.evidence_summary}
+                          </td>
+                        </tr>
+                      ))
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+                </>
+              )}
+            </div>
+
             {/* Geographic Distribution */}
             <div 
               className="p-6 rounded-lg border-2 mb-8"
@@ -1062,142 +1198,6 @@ export default function Dashboard() {
                       </div>
                     </div>
                   )}
-                </>
-              )}
-            </div>
-
-            {/* Top Flagged Accounts Table */}
-            <div 
-              className="p-6 rounded-lg border-2 mb-8"
-              style={{
-                backgroundColor: 'var(--card-bg)',
-                borderColor: 'var(--border-strong)'
-              }}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
-                  Top Flagged Accounts
-                </h3>
-                <button
-                  onClick={() => toggleSection('flaggedAccounts')}
-                  className="p-1 rounded transition-all"
-                  style={{ color: 'var(--text-tertiary)' }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
-                    e.currentTarget.style.color = 'var(--text-primary)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent'
-                    e.currentTarget.style.color = 'var(--text-tertiary)'
-                  }}
-                >
-                  {collapsedSections.flaggedAccounts ? (
-                    <ChevronDown className="w-5 h-5" />
-                  ) : (
-                    <ChevronUp className="w-5 h-5" />
-                  )}
-                </button>
-              </div>
-              
-              {!collapsedSections.flaggedAccounts && (
-                <>
-                  {/* Search Input */}
-                  <div className="mb-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
-                  <input
-                    type="text"
-                    placeholder="Search by email, risk level, or evidence..."
-                    value={flaggedAccountsSearch}
-                    onChange={(e) => setFlaggedAccountsSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 rounded-lg border-2"
-                    style={{
-                      backgroundColor: 'var(--input-bg, #ffffff)',
-                      borderColor: 'var(--border-strong)',
-                      color: 'var(--text-primary)'
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
-                      <th className="text-left py-3 px-4 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                        Email
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                        Risk Level
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                        Score
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                        Potential Borrowers
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                        Evidence
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      const filteredAccounts = companyData.top_flagged_accounts.data
-                        .filter(account => {
-                          if (flaggedAccountsSearch === '') return true
-                          const searchLower = flaggedAccountsSearch.toLowerCase()
-                          return (
-                            account.user_email.toLowerCase().includes(searchLower) ||
-                            account.risk_level.toLowerCase().includes(searchLower) ||
-                            account.evidence_summary.toLowerCase().includes(searchLower)
-                          )
-                        })
-                      
-                      if (filteredAccounts.length === 0) {
-                        return (
-                          <tr>
-                            <td colSpan={5} className="py-8 text-center" style={{ color: 'var(--text-tertiary)' }}>
-                              No accounts found matching "{flaggedAccountsSearch}"
-                            </td>
-                          </tr>
-                        )
-                      }
-                      
-                      return filteredAccounts.map((account, index) => (
-                        <tr
-                          key={index}
-                          style={{ borderBottom: '1px solid var(--border-color)' }}
-                        >
-                          <td className="py-3 px-4 text-sm" style={{ color: 'var(--text-primary)' }}>
-                            {account.user_email}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span
-                              className="px-2 py-1 rounded-full text-xs font-medium"
-                              style={{
-                                backgroundColor: account.risk_level === 'Critical' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-                                color: account.risk_level === 'Critical' ? '#ef4444' : '#f59e0b'
-                              }}
-                            >
-                              {account.risk_level}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                            {account.score.toLocaleString()}
-                          </td>
-                          <td className="py-3 px-4 text-sm" style={{ color: 'var(--text-primary)' }}>
-                            {account.potential_borrowers}
-                          </td>
-                          <td className="py-3 px-4 text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                            {account.evidence_summary}
-                          </td>
-                        </tr>
-                      ))
-                    })()}
-                  </tbody>
-                </table>
-              </div>
                 </>
               )}
             </div>

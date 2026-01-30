@@ -404,7 +404,12 @@ For integration help: support@unsharedlabs.com`
                 return (
                   <button
                     key={stack.id}
-                    onClick={() => stack.available && setSelectedTechStack(stack.id)}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      if (stack.available) {
+                        setSelectedTechStack(stack.id)
+                      }
+                    }}
                     disabled={!stack.available}
                     className="p-4 rounded-lg border text-left transition-all"
                     style={{
@@ -448,7 +453,12 @@ For integration help: support@unsharedlabs.com`
                 return (
                   <button
                     key={stack.id}
-                    onClick={() => stack.available && setSelectedTechStack(stack.id)}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      if (stack.available) {
+                        setSelectedTechStack(stack.id)
+                      }
+                    }}
                     disabled={!stack.available}
                     className="p-4 rounded-lg border text-left transition-all"
                     style={{
@@ -492,7 +502,12 @@ For integration help: support@unsharedlabs.com`
                 return (
                   <button
                     key={stack.id}
-                    onClick={() => stack.available && setSelectedTechStack(stack.id)}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      if (stack.available) {
+                        setSelectedTechStack(stack.id)
+                      }
+                    }}
                     disabled={!stack.available}
                     className="p-4 rounded-lg border text-left transition-all"
                     style={{
@@ -536,7 +551,12 @@ For integration help: support@unsharedlabs.com`
                 return (
                   <button
                     key={stack.id}
-                    onClick={() => stack.available && setSelectedTechStack(stack.id)}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      if (stack.available) {
+                        setSelectedTechStack(stack.id)
+                      }
+                    }}
                     disabled={!stack.available}
                     className="p-4 rounded-lg border text-left transition-all"
                     style={{

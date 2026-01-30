@@ -272,19 +272,7 @@ export async function updatePreventionStep(
     // Get current prevention_steps JSONB
     const preventionSteps = verificationSettings.prevention_steps || { step1: false, step2: false, step3: false }
 
-    // Step 1 is considered complete if prevention_steps.step1 is true OR is_verified is true
-    const step1Complete = preventionSteps.step1 || verificationSettings.is_verified || false
-
-    // Check prerequisites for sequential completion
-    if (step === 2 && !step1Complete) {
-      return {
-        success: false,
-        error: 'Please complete step 1 (Account Verification) first.',
-      }
-    }
-
-    // Step 3 can be completed independently (no prerequisite requirement)
-    // Removed step 2 requirement as per user request
+    // Steps can be completed in any order - no sequential requirements
 
     // Update the step completion status in JSONB
     preventionSteps[`step${step}`] = true

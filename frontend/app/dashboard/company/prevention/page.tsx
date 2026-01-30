@@ -165,6 +165,7 @@ export default function PreventionPage() {
     if (!token) return
 
     try {
+      // Fetch verification settings
       setLoading(true)
       const res = await fetch(`/api/companies/${companyId}/verification`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -183,6 +184,19 @@ export default function PreventionPage() {
         // Set domain form values if domain is already configured
         if (json.data.domain) {
           setDomain(json.data.domain)
+          // Fetch domain validation status if domain exists
+          try {
+            const validateRes = await fetch(`/api/companies/${companyId}/verification/domain/validate?domain=${encodeURIComponent(json.data.domain)}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            })
+            const validateJson = await validateRes.json()
+            if (validateJson?.success && validateJson.data) {
+              setDomainValidationResult(validateJson.data)
+            }
+          } catch (validateError) {
+            console.error('Failed to fetch domain validation:', validateError)
+            // Don't set error here, just log it - domain validation can be done later
+          }
         }
         // Load DNS records if they exist
         if (json.data.domain_dns_records) {
@@ -540,12 +554,14 @@ export default function PreventionPage() {
   // Calculate progress from JSONB prevention_steps
   const preventionSteps = verificationSettings?.prevention_steps || { step1: false, step2: false, step3: false }
   const step1Complete = preventionSteps.step1 || verificationSettings?.is_verified || false
-  const step2Complete = preventionSteps.step2 || false
+  // Step 2 is only complete if BOTH prevention_steps.step2 is true AND domain is authenticated
+  const step2Complete = (preventionSteps.step2 && domainValidationResult?.authenticated) || false
   const step3Complete = preventionSteps.step3 || false
   
-  const currentStep = step3Complete ? 3 : (step2Complete ? 2 : (step1Complete ? 1 : 0))
+  // Count actual completed steps
+  const completedSteps = [step1Complete, step2Complete, step3Complete].filter(Boolean).length
   const totalSteps = 3
-  const progress = (currentStep / totalSteps) * 100
+  const progress = (completedSteps / totalSteps) * 100
 
   const isVerified = verificationSettings?.is_verified || false
   const hasSenderId = !!verificationSettings?.sender_id
@@ -554,9 +570,10 @@ export default function PreventionPage() {
   // Show OTP input if sender_id exists but not verified yet
   const showOtpInput = !isVerified && hasSenderId && !showUpdateForm
   
-  // Check if steps can be marked complete (sequential requirement)
-  const canMarkStep2 = step1Complete && !step2Complete
-  const canMarkStep3 = !step3Complete // Step 3 can be completed independently
+  // Steps can be marked complete in any order - no sequential requirements
+  // Step 2 can be marked complete if domain is authenticated (regardless of step1 or step3 status)
+  const canMarkStep2 = domainValidationResult?.authenticated && !step2Complete
+  const canMarkStep3 = !step3Complete
 
   // Helper to generate email domain from company name
   const getCompanyDomain = () => {
@@ -648,7 +665,7 @@ export default function PreventionPage() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-              Progress: {currentStep} of {totalSteps} steps completed
+              Progress: {completedSteps} of {totalSteps} steps completed
             </span>
             <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
               {Math.round(progress)}%
@@ -667,10 +684,10 @@ export default function PreventionPage() {
             <div className="flex items-center gap-2">
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                  currentStep >= 1 ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
+                  step1Complete ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
                 }`}
               >
-                {currentStep > 1 ? <CheckCircle className="w-5 h-5" /> : '1'}
+                {step1Complete ? <CheckCircle className="w-5 h-5" /> : '1'}
               </div>
               <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
                 Set up Account Verification
@@ -679,10 +696,10 @@ export default function PreventionPage() {
             <div className="flex items-center gap-2">
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                  currentStep >= 2 ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
+                  step2Complete ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
                 }`}
               >
-                {currentStep >= 2 ? <CheckCircle className="w-5 h-5" /> : '2'}
+                {step2Complete ? <CheckCircle className="w-5 h-5" /> : '2'}
               </div>
               <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
                 Domain Set Up
@@ -691,10 +708,10 @@ export default function PreventionPage() {
             <div className="flex items-center gap-2">
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                  currentStep >= 3 ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
+                  step3Complete ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
                 }`}
               >
-                {currentStep >= 3 ? <CheckCircle className="w-5 h-5" /> : '3'}
+                {step3Complete ? <CheckCircle className="w-5 h-5" /> : '3'}
               </div>
               <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
                 Configure Email
@@ -710,10 +727,10 @@ export default function PreventionPage() {
               <div className="flex items-center gap-2">
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                    currentStep >= 1 ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
+                    step1Complete ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
                   }`}
                 >
-                  {currentStep > 1 ? <CheckCircle className="w-5 h-5" /> : '1'}
+                  {step1Complete ? <CheckCircle className="w-5 h-5" /> : '1'}
                 </div>
                 <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
                   Set up Account Verification
@@ -1213,10 +1230,10 @@ export default function PreventionPage() {
               <div className="flex items-center gap-2">
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                    currentStep >= 2 ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
+                    step2Complete ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
                   }`}
                 >
-                  {currentStep >= 2 ? <CheckCircle className="w-5 h-5" /> : '2'}
+                  {step2Complete ? <CheckCircle className="w-5 h-5" /> : '2'}
                 </div>
                 <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
                   Domain Set Up
@@ -1665,7 +1682,7 @@ export default function PreventionPage() {
               )}
 
 
-              {!step2Complete && (
+              {(!step2Complete || !domainValidationResult?.authenticated) && (
                 <div className="mt-4">
                   {canMarkStep2 ? (
                     <>
@@ -1698,11 +1715,44 @@ export default function PreventionPage() {
                       <button
                         type="button"
                         onClick={async () => {
-                          // First validate domain
-                          await handleValidateDomain()
-                          // If authenticated, mark as complete
-                          if (domainValidationResult?.authenticated) {
-                            await handleMarkStepComplete(2)
+                          if (!companyId || !verificationSettings?.domain) return
+                          const token = getSessionToken()
+                          if (!token) return
+
+                          setIsValidatingDomain(true)
+                          setDomainError(null)
+
+                          try {
+                            const res = await fetch(`/api/companies/${companyId}/verification/domain`, {
+                              method: 'GET',
+                              headers: { 
+                                Authorization: `Bearer ${token}`
+                              }
+                            })
+                            const json = await res.json()
+                            
+                            if (json?.success) {
+                              setDomainValidationResult(json.data)
+                              // Update DNS records if they've changed
+                              if (json.data?.dns_records) {
+                                setDomainDnsRecords(json.data.dns_records)
+                              }
+                              // If authenticated, mark as complete
+                              if (json.data?.authenticated) {
+                                await handleMarkStepComplete(2)
+                              }
+                            } else {
+                              setDomainError(json?.error || 'Failed to validate domain')
+                              setDomainValidationResult(null)
+                              setTimeout(() => setDomainError(null), 8000)
+                            }
+                          } catch (e: any) {
+                            console.error('Failed to validate domain:', e)
+                            setDomainError(e.message || 'Failed to validate domain')
+                            setDomainValidationResult(null)
+                            setTimeout(() => setDomainError(null), 8000)
+                          } finally {
+                            setIsValidatingDomain(false)
                           }
                         }}
                         disabled={isValidatingDomain || isMarkingStepComplete === 2}
@@ -1747,10 +1797,10 @@ export default function PreventionPage() {
               <div className="flex items-center gap-2">
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                    currentStep >= 3 ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
+                    step3Complete ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
                   }`}
                 >
-                  {currentStep >= 3 ? <CheckCircle className="w-5 h-5" /> : '3'}
+                  {step3Complete ? <CheckCircle className="w-5 h-5" /> : '3'}
                 </div>
                 <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
                   Configure Email

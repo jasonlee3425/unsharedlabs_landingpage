@@ -123,6 +123,31 @@ export function SimpleBarChart({ data, height = 300, color = '#3b82f6' }: { data
           strokeWidth="2"
         />
 
+        {/* X-axis label */}
+        <text
+          x={padding.left + chartWidth / 2}
+          y={svgHeight - 10}
+          textAnchor="middle"
+          fontSize="14"
+          fontWeight="500"
+          fill="var(--text-primary)"
+        >
+          Date
+        </text>
+
+        {/* Y-axis label */}
+        <text
+          x={20}
+          y={padding.top + chartHeight / 2}
+          textAnchor="middle"
+          fontSize="14"
+          fontWeight="500"
+          fill="var(--text-primary)"
+          transform={`rotate(-90, 20, ${padding.top + chartHeight / 2})`}
+        >
+          Count
+        </text>
+
         {/* Bars */}
         {data.map((item, index) => {
           const barHeight = roundedRange > 0 ? (item.value / roundedRange) * chartHeight : 0
@@ -313,6 +338,31 @@ export function SimpleLineChart({ data, height = 300, color = '#3b82f6' }: { dat
           stroke="var(--border-color)"
           strokeWidth="2"
         />
+
+        {/* X-axis label */}
+        <text
+          x={padding.left + chartWidth / 2}
+          y={svgHeight - 10}
+          textAnchor="middle"
+          fontSize="14"
+          fontWeight="500"
+          fill="var(--text-primary)"
+        >
+          Date
+        </text>
+
+        {/* Y-axis label */}
+        <text
+          x={20}
+          y={padding.top + chartHeight / 2}
+          textAnchor="middle"
+          fontSize="14"
+          fontWeight="500"
+          fill="var(--text-primary)"
+          transform={`rotate(-90, 20, ${padding.top + chartHeight / 2})`}
+        >
+          Count
+        </text>
 
         {/* Gradient fill area */}
         <path
