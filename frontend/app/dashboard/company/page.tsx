@@ -42,6 +42,8 @@ export default function CompanyPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [showCreateCompany, setShowCreateCompany] = useState(false)
   const [showInviteModal, setShowInviteModal] = useState(false)
+  const [showInviteSuccessModal, setShowInviteSuccessModal] = useState(false)
+  const [invitedEmail, setInvitedEmail] = useState('')
   const [companyName, setCompanyName] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member')
@@ -307,10 +309,12 @@ export default function CompanyPage() {
       const data = await response.json()
 
       if (data.success) {
-      setInviteEmail('')
-      setInviteRole('member')
-      setShowInviteModal(false)
-        alert('Invitation sent successfully')
+        const emailToShow = inviteEmail.trim()
+        setInvitedEmail(emailToShow)
+        setInviteEmail('')
+        setInviteRole('member')
+        setShowInviteModal(false)
+        setShowInviteSuccessModal(true)
         // Refresh members list
         await fetchCompanyData()
       } else {
@@ -1682,8 +1686,67 @@ export default function CompanyPage() {
                     backgroundColor: 'var(--active-bg)',
                     color: 'var(--text-primary)'
                   }}
+                  onMouseEnter={(e) => {
+                    if (!e.currentTarget.disabled) {
+                      e.currentTarget.style.backgroundColor = '#10b981'
+                      e.currentTarget.style.color = '#ffffff'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--active-bg)'
+                    e.currentTarget.style.color = 'var(--text-primary)'
+                  }}
                 >
                   {isInviting ? 'Sending...' : 'Send Invite'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Invite Success Modal */}
+        {showInviteSuccessModal && (
+          <div 
+            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowInviteSuccessModal(false)}
+          >
+            <div 
+              className="rounded-lg border-2 p-6 max-w-md w-full shadow-2xl"
+              style={{
+                backgroundColor: 'var(--modal-bg)',
+                borderColor: 'var(--border-strong)'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <CheckCircle className="w-16 h-16 mx-auto mb-4" style={{ color: '#10b981' }} />
+                <h3 
+                  className="text-xl font-semibold mb-2"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Invitation Sent Successfully
+                </h3>
+                <p 
+                  className="text-sm mb-6"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  The invitation has been sent to <strong style={{ color: 'var(--text-primary)' }}>{invitedEmail}</strong>. They will receive an email with instructions to join your team.
+                </p>
+                <button
+                  onClick={() => setShowInviteSuccessModal(false)}
+                  className="w-full px-4 py-2 rounded-lg transition-all"
+                  style={{
+                    backgroundColor: 'var(--active-bg)',
+                    color: 'var(--text-primary)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--hover-bg)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--active-bg)'
+                  }}
+                >
+                  Close
                 </button>
               </div>
             </div>

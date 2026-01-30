@@ -342,14 +342,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get inviter's name
+    // Get inviter's display name (prefer name field, fallback to email)
     const { data: inviterProfile } = await supabase
       .from('user_profiles')
-      .select('email')
+      .select('name, email')
       .eq('user_id', user.id)
       .single()
 
-    const inviterName = inviterProfile?.email || 'Someone'
+    const inviterDisplayName = inviterProfile?.name || inviterProfile?.email || 'Someone'
 
     // Create invitation record
     const { data: invitation, error: inviteError } = await supabase
@@ -377,7 +377,7 @@ export async function POST(request: NextRequest) {
     // Send invitation email
     const emailResult = await sendInviteEmail({
       to: normalizedEmail,
-      inviterName,
+      inviterDisplayName,
       companyName: company.name,
       inviteToken,
       role: validCompanyRole === 'admin' ? 'Admin' : 'Member',

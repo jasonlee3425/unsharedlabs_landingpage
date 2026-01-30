@@ -36,7 +36,7 @@ export default function AuthCallbackPage() {
         return
       }
 
-      // If we have an access token, store it and redirect
+      // If we have an access token, store it and verify session
       if (accessToken) {
         // Store session token
         localStorage.setItem('sb-access-token', accessToken)
@@ -50,14 +50,44 @@ export default function AuthCallbackPage() {
         // Clear the hash from URL to prevent re-processing
         window.history.replaceState(null, '', window.location.pathname + window.location.search)
 
-        // If there's an invite token, redirect to accept it
+        // Verify the session is active by checking with the API
+        try {
+          const verifyResponse = await fetch('/api/auth/me', {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+            },
+          })
+
+          if (verifyResponse.ok) {
+            const userData = await verifyResponse.json()
+            // Session is active and valid
+            if (userData.success && userData.user) {
+              // If there's an invite token, redirect to accept it
+              if (inviteToken) {
+                setIsProcessing(false)
+                router.replace(`/invite/accept?token=${inviteToken}&session=${accessToken}`)
+                return
+              }
+
+              // Session is active - redirect to dashboard
+              setIsProcessing(false)
+              router.replace('/dashboard')
+              return
+            }
+          }
+        } catch (verifyError) {
+          console.error('Error verifying session:', verifyError)
+          // If verification fails, still try to redirect (token might still be valid)
+        }
+
+        // If there's an invite token, redirect to accept it (even if verification failed)
         if (inviteToken) {
           setIsProcessing(false)
           router.replace(`/invite/accept?token=${inviteToken}&session=${accessToken}`)
           return
         }
 
-        // Otherwise redirect to dashboard
+        // Otherwise redirect to dashboard (session should be active after email confirmation)
         setIsProcessing(false)
         router.replace('/dashboard')
         return
