@@ -31,7 +31,8 @@ import {
   Server,
   Sparkles,
   Smartphone,
-  Globe
+  Globe,
+  Search
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useTheme } from '@/lib/theme-context'
@@ -46,6 +47,7 @@ function DocumentationContent() {
   const [activeTab, setActiveTab] = useState<'tech-stack' | 'ai'>('tech-stack')
   const [selectedTechStack, setSelectedTechStack] = useState<string | null>('nodejs')
   const [techStackSelectorCollapsed, setTechStackSelectorCollapsed] = useState(false)
+  const [techStackSearch, setTechStackSearch] = useState('')
 
   const copyToClipboard = (text: string, index: number) => {
     navigator.clipboard.writeText(text)
@@ -395,11 +397,34 @@ For integration help: support@unsharedlabs.com`
           
           {!techStackSelectorCollapsed && (
           <>
+          {/* Search Bar */}
+          <div className="mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
+              <input
+                type="text"
+                placeholder="Search tech stacks..."
+                value={techStackSearch}
+                onChange={(e) => setTechStackSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 rounded-lg border"
+                style={{
+                  backgroundColor: 'var(--card-bg)',
+                  borderColor: 'var(--border-color)',
+                  color: 'var(--text-primary)',
+                }}
+              />
+            </div>
+          </div>
+
           {/* Backend */}
           <div className="mb-6">
             <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-tertiary)' }}>Backend</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-              {techStacks.filter(s => s.category === 'backend').map((stack) => {
+              {techStacks.filter(s => 
+                s.category === 'backend' && 
+                (s.name.toLowerCase().includes(techStackSearch.toLowerCase()) || 
+                 s.description?.toLowerCase().includes(techStackSearch.toLowerCase()))
+              ).map((stack) => {
                 const Icon = stack.icon
                 return (
                   <button
@@ -448,7 +473,11 @@ For integration help: support@unsharedlabs.com`
           <div className="mb-6">
             <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-tertiary)' }}>Frontend</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-              {techStacks.filter(s => s.category === 'frontend').map((stack) => {
+              {techStacks.filter(s => 
+                s.category === 'frontend' && 
+                (s.name.toLowerCase().includes(techStackSearch.toLowerCase()) || 
+                 s.description?.toLowerCase().includes(techStackSearch.toLowerCase()))
+              ).map((stack) => {
                 const Icon = stack.icon
                 return (
                   <button
@@ -497,7 +526,11 @@ For integration help: support@unsharedlabs.com`
           <div className="mb-6">
             <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-tertiary)' }}>Mobile</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-              {techStacks.filter(s => s.category === 'mobile').map((stack) => {
+              {techStacks.filter(s => 
+                s.category === 'mobile' && 
+                (s.name.toLowerCase().includes(techStackSearch.toLowerCase()) || 
+                 s.description?.toLowerCase().includes(techStackSearch.toLowerCase()))
+              ).map((stack) => {
                 const Icon = stack.icon
                 return (
                   <button
@@ -546,7 +579,11 @@ For integration help: support@unsharedlabs.com`
           <div className="mb-6">
             <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-tertiary)' }}>Miscellaneous</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-              {techStacks.filter(s => s.category === 'miscellaneous').map((stack) => {
+              {techStacks.filter(s => 
+                s.category === 'miscellaneous' && 
+                (s.name.toLowerCase().includes(techStackSearch.toLowerCase()) || 
+                 s.description?.toLowerCase().includes(techStackSearch.toLowerCase()))
+              ).map((stack) => {
                 const Icon = stack.icon
                 return (
                   <button
@@ -1036,7 +1073,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       icon: Rocket,
     },
     {
-      name: 'Prevention',
+      name: 'Prevention Plan',
       view: 'prevention' as const,
       href: '/dashboard/company/prevention',
       icon: Shield,
@@ -1314,7 +1351,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               {currentView === 'documentation' ? 'Documentation' 
                 : currentView === 'settings' ? 'Settings' 
                 : currentView === 'onboarding' ? 'Onboarding'
-                : currentView === 'prevention' ? 'Prevention'
+                : currentView === 'prevention' ? 'Prevention Plan'
                 : currentView === 'company' ? 'Company'
                 : 'Dashboard'}
             </h1>

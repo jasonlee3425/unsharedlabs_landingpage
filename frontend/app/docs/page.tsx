@@ -19,7 +19,8 @@ import {
   Globe,
   Sparkles,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Search
 } from 'lucide-react'
 
 export default function Docs() {
@@ -27,6 +28,7 @@ export default function Docs() {
   const [activeTab, setActiveTab] = useState<'tech-stack' | 'ai'>('tech-stack')
   const [selectedTechStack, setSelectedTechStack] = useState<string | null>('nodejs')
   const [techStackSelectorCollapsed, setTechStackSelectorCollapsed] = useState(false)
+  const [techStackSearch, setTechStackSearch] = useState('')
 
   const copyToClipboard = (text: string, index: number) => {
     navigator.clipboard.writeText(text)
@@ -344,11 +346,29 @@ For integration help: support@unsharedlabs.com`
             
             {!techStackSelectorCollapsed && (
               <>
+                {/* Search Bar */}
+                <div className="mb-6">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-silver" />
+                    <input
+                      type="text"
+                      placeholder="Search tech stacks..."
+                      value={techStackSearch}
+                      onChange={(e) => setTechStackSearch(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 rounded-lg border bg-black/30 border-white/10 text-white placeholder:text-silver/50"
+                    />
+                  </div>
+                </div>
+
                 {/* Backend */}
                 <div className="mb-6">
                   <h3 className="text-sm font-semibold mb-3 text-silver">Backend</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                    {techStacks.filter(s => s.category === 'backend').map((stack) => {
+                    {techStacks.filter(s => 
+                      s.category === 'backend' && 
+                      (s.name.toLowerCase().includes(techStackSearch.toLowerCase()) || 
+                       s.description?.toLowerCase().includes(techStackSearch.toLowerCase()))
+                    ).map((stack) => {
                       const Icon = stack.icon
                       return (
                         <button
@@ -389,7 +409,11 @@ For integration help: support@unsharedlabs.com`
                 <div className="mb-6">
                   <h3 className="text-sm font-semibold mb-3 text-silver">Frontend</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                    {techStacks.filter(s => s.category === 'frontend').map((stack) => {
+                    {techStacks.filter(s => 
+                      s.category === 'frontend' && 
+                      (s.name.toLowerCase().includes(techStackSearch.toLowerCase()) || 
+                       s.description?.toLowerCase().includes(techStackSearch.toLowerCase()))
+                    ).map((stack) => {
                       const Icon = stack.icon
                       return (
                         <button
@@ -430,7 +454,11 @@ For integration help: support@unsharedlabs.com`
                 <div className="mb-6">
                   <h3 className="text-sm font-semibold mb-3 text-silver">Mobile</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                    {techStacks.filter(s => s.category === 'mobile').map((stack) => {
+                    {techStacks.filter(s => 
+                      s.category === 'mobile' && 
+                      (s.name.toLowerCase().includes(techStackSearch.toLowerCase()) || 
+                       s.description?.toLowerCase().includes(techStackSearch.toLowerCase()))
+                    ).map((stack) => {
                       const Icon = stack.icon
                       return (
                         <button
@@ -471,7 +499,11 @@ For integration help: support@unsharedlabs.com`
                 <div className="mb-6">
                   <h3 className="text-sm font-semibold mb-3 text-silver">Miscellaneous</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                    {techStacks.filter(s => s.category === 'miscellaneous').map((stack) => {
+                    {techStacks.filter(s => 
+                      s.category === 'miscellaneous' && 
+                      (s.name.toLowerCase().includes(techStackSearch.toLowerCase()) || 
+                       s.description?.toLowerCase().includes(techStackSearch.toLowerCase()))
+                    ).map((stack) => {
                       const Icon = stack.icon
                       return (
                         <button

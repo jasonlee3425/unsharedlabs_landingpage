@@ -601,10 +601,10 @@ export default function PreventionPage() {
             <Shield className="w-8 h-8" style={{ color: 'var(--text-primary)' }} />
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                Prevention
+                Prevention Plan
               </h1>
               <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                Account Verification Settings
+                Prevention method setup. Configure the account verification service that Unshared Labs provides. When used properly, this service will be used to ask flagged users to verify their account.
               </p>
             </div>
           </div>

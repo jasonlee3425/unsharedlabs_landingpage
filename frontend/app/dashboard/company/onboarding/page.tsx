@@ -22,6 +22,7 @@ import {
   X,
   Book,
   ExternalLink,
+  Search,
 } from 'lucide-react'
 import DashboardLayout from '@/components/DashboardLayout'
 import { useAuth } from '@/lib/auth-context'
@@ -243,6 +244,7 @@ export default function OnboardingPage() {
   const [screen, setScreen] = useState<Screen>('select')
   const [isLoadingOnboarding, setIsLoadingOnboarding] = useState(true)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [techStackSearch, setTechStackSearch] = useState('')
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [collapsedSteps, setCollapsedSteps] = useState<Record<string, boolean>>({})
   const [dismissedNotifications, setDismissedNotifications] = useState<Record<string, boolean>>({})
@@ -1027,6 +1029,25 @@ export default function OnboardingPage() {
             </div>
           )}
 
+          {/* Search Bar */}
+          <div className="mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: 'var(--text-tertiary)' }} />
+              <input
+                type="text"
+                placeholder="Search tech stacks..."
+                value={techStackSearch}
+                onChange={(e) => setTechStackSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 rounded-lg border"
+                style={{
+                  backgroundColor: 'var(--card-bg)',
+                  borderColor: 'var(--border-color)',
+                  color: 'var(--text-primary)',
+                }}
+              />
+            </div>
+          </div>
+
           <div className="space-y-8">
             {/* Backend */}
             <div>
@@ -1035,7 +1056,11 @@ export default function OnboardingPage() {
                 Backend
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {techStacks.filter((t) => t.category === 'backend').map((tech) => (
+                {techStacks.filter((t) => 
+                  t.category === 'backend' && 
+                  (t.name.toLowerCase().includes(techStackSearch.toLowerCase()) || 
+                   t.description.toLowerCase().includes(techStackSearch.toLowerCase()))
+                ).map((tech) => (
                   <TechCard key={tech.id} tech={tech} />
                 ))}
               </div>
@@ -1048,7 +1073,11 @@ export default function OnboardingPage() {
                 Web Frontend
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {techStacks.filter((t) => t.category === 'web-frontend').map((tech) => (
+                {techStacks.filter((t) => 
+                  t.category === 'web-frontend' && 
+                  (t.name.toLowerCase().includes(techStackSearch.toLowerCase()) || 
+                   t.description.toLowerCase().includes(techStackSearch.toLowerCase()))
+                ).map((tech) => (
                   <TechCard key={tech.id} tech={tech} />
                 ))}
               </div>
@@ -1061,7 +1090,11 @@ export default function OnboardingPage() {
                 Mobile Development
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {techStacks.filter((t) => t.category === 'mobile').map((tech) => (
+                {techStacks.filter((t) => 
+                  t.category === 'mobile' && 
+                  (t.name.toLowerCase().includes(techStackSearch.toLowerCase()) || 
+                   t.description.toLowerCase().includes(techStackSearch.toLowerCase()))
+                ).map((tech) => (
                   <TechCard key={tech.id} tech={tech} />
                 ))}
               </div>
@@ -1077,7 +1110,11 @@ export default function OnboardingPage() {
                 Site builders and CMS platforms
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {techStacks.filter((t) => t.category === 'miscellaneous').map((tech) => (
+                {techStacks.filter((t) => 
+                  t.category === 'miscellaneous' && 
+                  (t.name.toLowerCase().includes(techStackSearch.toLowerCase()) || 
+                   t.description.toLowerCase().includes(techStackSearch.toLowerCase()))
+                ).map((tech) => (
                   <TechCard key={tech.id} tech={tech} />
                 ))}
               </div>
@@ -2524,7 +2561,7 @@ if (result.pass) {
           )}
 
           {!state.nodejsSteps.verification && (
-            <StepCard stepId="verification" stepNumber={6} title="Set up Account Verification (Optional)" description="Set up account verification to send verification emails from your own domain.">
+            <StepCard stepId="verification" stepNumber={6} title="Set up Account Verification (Optional)" description="Set up the account verification service that Unshared Labs provides. This service will be used to ask flagged users to verify their account. Configure this in the Prevention Plan tab.">
               <div className="space-y-4">
               
               {/* Toggle to opt into verification */}
@@ -2575,7 +2612,7 @@ if (result.pass) {
                     }}
                   >
                     <Shield className="w-4 h-4" />
-                    <span>Go to Prevention Settings</span>
+                    <span>Go to Prevention Plan</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
 
@@ -3129,7 +3166,7 @@ if (result.pass) {
               )}
 
               {state.optIntoVerification && state.nodejsSteps.verification && (
-                <StepCard stepId="verification" stepNumber={6} title="Set up Account Verification (Optional)" description="Set up account verification to send verification emails from your own domain.">
+                <StepCard stepId="verification" stepNumber={6} title="Set up Account Verification (Optional)" description="Set up the account verification service that Unshared Labs provides. This service will be used to ask flagged users to verify their account. Configure this in the Prevention Plan tab.">
                   <div className="space-y-4">
                     {/* Toggle to opt into verification */}
                     <div className="flex items-center gap-3 p-4 rounded-lg border-2" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-strong)' }}>
