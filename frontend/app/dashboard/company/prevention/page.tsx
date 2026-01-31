@@ -1641,10 +1641,138 @@ export default function PreventionPage() {
 
                         {!domainDnsRecords && !domainValidationResult?.dns_records && verificationSettings?.domain && (
                           <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                            DNS records will be displayed here after domain setup. Click "Test Domain" to validate.
+                            DNS records will be displayed here after domain setup. Click "Test DNS Records" to validate.
                           </p>
                         )}
                       </div>
+
+                      {/* Test DNS Records Button */}
+                      {verificationSettings?.domain && (
+                        <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                          <button
+                            type="button"
+                            onClick={handleValidateDomain}
+                            disabled={isValidatingDomain}
+                            className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+                            style={{
+                              backgroundColor: isValidatingDomain ? 'var(--hover-bg)' : '#3b82f6',
+                              color: isValidatingDomain ? 'var(--text-tertiary)' : 'white',
+                              cursor: isValidatingDomain ? 'not-allowed' : 'pointer',
+                              opacity: isValidatingDomain ? 0.5 : 1,
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isValidatingDomain) {
+                                e.currentTarget.style.backgroundColor = '#2563eb'
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isValidatingDomain) {
+                                e.currentTarget.style.backgroundColor = '#3b82f6'
+                              }
+                            }}
+                          >
+                            {isValidatingDomain ? (
+                              <>
+                                <Clock className="w-4 h-4 animate-spin" />
+                                <span>Testing DNS Records...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Shield className="w-4 h-4" />
+                                <span>Test DNS Records</span>
+                              </>
+                            )}
+                          </button>
+
+                          {/* Display DNS Validation Status */}
+                          {domainValidationResult && (
+                            <div className="mt-3 space-y-2">
+                              <div className="flex items-center gap-2 text-sm">
+                                {domainValidationResult.verified ? (
+                                  <>
+                                    <CheckCircle className="w-4 h-4" style={{ color: '#10b981' }} />
+                                    <span style={{ color: '#10b981' }}>Domain is verified</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <AlertTriangle className="w-4 h-4" style={{ color: '#ef4444' }} />
+                                    <span style={{ color: '#ef4444' }}>Domain is not verified</span>
+                                  </>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 text-sm">
+                                {domainValidationResult.authenticated ? (
+                                  <>
+                                    <CheckCircle className="w-4 h-4" style={{ color: '#10b981' }} />
+                                    <span style={{ color: '#10b981' }}>Domain is authenticated</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <AlertTriangle className="w-4 h-4" style={{ color: '#f59e0b' }} />
+                                    <span style={{ color: '#f59e0b' }}>Domain is not authenticated - DNS records may not be set correctly</span>
+                                  </>
+                                )}
+                              </div>
+
+                              {/* Show individual DNS record statuses if available */}
+                              {domainValidationResult.dns_records && (
+                                <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                                  <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+                                    DNS Record Status:
+                                  </p>
+                                  <div className="space-y-1 text-xs">
+                                    {domainValidationResult.dns_records.brevo_code && (
+                                      <div className="flex items-center gap-2">
+                                        {domainValidationResult.dns_records.brevo_code.status ? (
+                                          <>
+                                            <CheckCircle className="w-3 h-3" style={{ color: '#10b981' }} />
+                                            <span style={{ color: '#10b981' }}>Brevo Code TXT: Verified</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <AlertTriangle className="w-3 h-3" style={{ color: '#ef4444' }} />
+                                            <span style={{ color: '#ef4444' }}>Brevo Code TXT: Not verified</span>
+                                          </>
+                                        )}
+                                      </div>
+                                    )}
+                                    {domainValidationResult.dns_records.dkim_record && (
+                                      <div className="flex items-center gap-2">
+                                        {domainValidationResult.dns_records.dkim_record.status ? (
+                                          <>
+                                            <CheckCircle className="w-3 h-3" style={{ color: '#10b981' }} />
+                                            <span style={{ color: '#10b981' }}>DKIM TXT: Verified</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <AlertTriangle className="w-3 h-3" style={{ color: '#ef4444' }} />
+                                            <span style={{ color: '#ef4444' }}>DKIM TXT: Not verified</span>
+                                          </>
+                                        )}
+                                      </div>
+                                    )}
+                                    {domainValidationResult.dns_records.dkim_txt && (
+                                      <div className="flex items-center gap-2">
+                                        {domainValidationResult.dns_records.dkim_txt.status ? (
+                                          <>
+                                            <CheckCircle className="w-3 h-3" style={{ color: '#10b981' }} />
+                                            <span style={{ color: '#10b981' }}>DKIM TXT: Verified</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <AlertTriangle className="w-3 h-3" style={{ color: '#ef4444' }} />
+                                            <span style={{ color: '#ef4444' }}>DKIM TXT: Not verified</span>
+                                          </>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

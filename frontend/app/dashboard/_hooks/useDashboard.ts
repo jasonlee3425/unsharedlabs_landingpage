@@ -41,12 +41,18 @@ export function useDashboard(companyId: string | undefined, isLoading: boolean) 
           return
         }
 
-        // 1) Fetch onboarding state
-        const onboardingRes = await fetch(`/api/companies/${companyId}/onboarding`, {
-          headers: { Authorization: `Bearer ${sessionToken}` },
-        })
-        const onboardingJson = await onboardingRes.json()
+        // Fetch onboarding and data in parallel for better performance
+        const [onboardingRes, dataRes] = await Promise.all([
+          fetch(`/api/companies/${companyId}/onboarding`, {
+            headers: { Authorization: `Bearer ${sessionToken}` },
+          }),
+          fetch(`/api/companies/${companyId}/data`, {
+            headers: { Authorization: `Bearer ${sessionToken}` },
+          })
+        ])
 
+        // Process onboarding response
+        const onboardingJson = await onboardingRes.json()
         const state = onboardingJson?.state || {}
         setOnboardingState(state)
 
@@ -73,26 +79,22 @@ export function useDashboard(companyId: string | undefined, isLoading: boolean) 
         // Track if there are any incomplete stacks (for button visibility)
         setHasIncompleteOnboarding(hasIncompleteStacks || !onboardingJson?.completed)
 
-        // 2) If onboarding incomplete AND no previously completed stacks -> don't fetch data
-        // If there are previously completed stacks, allow viewing data even with new incomplete stacks
-        if (!onboardingJson?.completed && !hasPreviouslyCompleted) {
-          setDataLoading(false)
-          return
-        }
-
-        // 3) Fetch company data (now allowed)
-        const dataRes = await fetch(`/api/companies/${companyId}/data`, {
-          headers: { Authorization: `Bearer ${sessionToken}` },
-        })
-        const result = await dataRes.json()
-
-        if (result.success && result.data) {
-          setCompanyData(result.data)
-        } else if (result.success && !result.data) {
-          // No data available yet (new client)
-          setCompanyData(null)
-        } else {
-          setDataError(result.error || 'Failed to load data')
+        // Process data response
+        // Only set data if onboarding is complete OR there are previously completed stacks
+        if (onboardingJson?.completed || hasPreviouslyCompleted) {
+          const result = await dataRes.json()
+          
+          if (result.success && result.data) {
+            setCompanyData(result.data)
+          } else if (result.success && !result.data) {
+            // No data available yet (new client)
+            setCompanyData(null)
+          } else {
+            // Only set error if it's not the onboarding incomplete error
+            if (!result.error?.includes('Onboarding incomplete')) {
+              setDataError(result.error || 'Failed to load data')
+            }
+          }
         }
       } catch (error) {
         console.error('Error fetching onboarding/dashboard data:', error)

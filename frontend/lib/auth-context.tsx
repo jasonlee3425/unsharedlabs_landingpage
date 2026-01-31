@@ -51,9 +51,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const data = await response.json()
         if (data.success && data.user) {
           setUser(data.user)
-          // Also update localStorage for backward compatibility
+          // Also update localStorage for backward compatibility and cache timestamp
           if (typeof window !== 'undefined') {
             localStorage.setItem('sb-user', JSON.stringify(data.user))
+            localStorage.setItem('sb-user-timestamp', Date.now().toString())
           }
         } else {
           setUser(null)
@@ -83,15 +84,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const currentUser = getCurrentUser()
     const sessionToken = getSessionToken()
     
-    console.log('Auth context init:', { currentUser, hasSessionToken: !!sessionToken })
-    
     if (currentUser) {
       setUser(currentUser)
       setIsLoading(false) // Set loading to false immediately if we have user in localStorage
-    }
-
-    // Then fetch full profile from API if we have a session token
-    if (sessionToken) {
+      
+      // Only fetch fresh profile if we have a session token and user data might be stale
+      // Check if user data was recently updated (within last 5 minutes) to avoid unnecessary calls
+      const userTimestamp = localStorage.getItem('sb-user-timestamp')
+      const now = Date.now()
+      const fiveMinutes = 5 * 60 * 1000
+      const isStale = !userTimestamp || (now - parseInt(userTimestamp)) > fiveMinutes
+      
+      if (sessionToken && isStale) {
+        fetchUserProfile()
+      }
+    } else if (sessionToken) {
+      // No user in localStorage but we have a token - fetch profile
       fetchUserProfile()
     } else {
       setIsLoading(false)
@@ -162,12 +170,12 @@ export const useAuth = () => useContext(AuthContext)
 export function useAuthUpdate() {
   return {
     updateUser: (user: User | null) => {
-      console.log('Updating user:', user)
       // Update localStorage and trigger storage event to update context
       if (typeof window === 'undefined') return
       
       if (user) {
         localStorage.setItem('sb-user', JSON.stringify(user))
+        localStorage.setItem('sb-user-timestamp', Date.now().toString())
         // Dispatch custom event to update context in same tab
         window.dispatchEvent(new CustomEvent('user-updated'))
         // Also dispatch storage event for cross-tab updates
@@ -178,6 +186,7 @@ export function useAuthUpdate() {
         }))
       } else {
         localStorage.removeItem('sb-user')
+        localStorage.removeItem('sb-user-timestamp')
         window.dispatchEvent(new CustomEvent('user-updated'))
         window.dispatchEvent(new StorageEvent('storage', {
           key: 'sb-user',

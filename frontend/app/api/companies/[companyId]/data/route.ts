@@ -31,16 +31,10 @@ export async function GET(
       )
     }
 
-    // Require completed onboarding before returning dashboard data (super admins bypass)
-    if (!isSuperAdmin(user.profile)) {
-      const onboardingComplete = await isOnboardingComplete(params.companyId)
-      if (!onboardingComplete) {
-        return NextResponse.json(
-          { success: false, error: 'Onboarding incomplete. Please complete onboarding to view dashboard data.' },
-          { status: 403 }
-        )
-      }
-    }
+    // Note: Onboarding check is now handled in the frontend useDashboard hook
+    // to avoid redundant database queries. The frontend will only call this endpoint
+    // when onboarding is complete or there are previously completed stacks.
+    // Super admins can always access data.
 
     // Get current company data using service
     const { data: companyData, error: dataError } = await getCompanyData(params.companyId)

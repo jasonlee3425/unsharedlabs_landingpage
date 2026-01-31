@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { getSessionToken } from '@/lib/auth'
 import { Building2, UserPlus, Users, Mail, User, X, Trash2, Shield, Edit2, Upload, Image as ImageIcon, CheckCircle, XCircle, Loader2 } from 'lucide-react'
@@ -79,16 +79,11 @@ export default function CompanyPage() {
   // Check if user has a company
   const hasCompany = !!user?.companyId && !!company
 
-  useEffect(() => {
-    fetchCompanyData()
-    fetchMyPendingInvitations()
-  }, [user])
-
-  const fetchMyPendingInvitations = async () => {
+  const fetchMyPendingInvitations = useCallback(async () => {
     if (!user) return
 
     try {
-      const sessionToken = localStorage.getItem('sb-access-token')
+      const sessionToken = getSessionToken()
       if (!sessionToken) return
 
       const response = await fetch('/api/invite/pending', {
@@ -111,77 +106,16 @@ export default function CompanyPage() {
       console.error('Error fetching pending invitations:', error)
       setMyPendingInvitations([])
     }
-  }
+  }, [user])
 
-  const handleAcceptInvitation = async () => {
-    if (!acceptingInvitation || !(acceptingInvitation as any).token) return
-
-    setIsAcceptingInvitation(true)
-    setAcceptInvitationStatus('idle')
-    setAcceptInvitationMessage('')
-
-    try {
-      const sessionToken = localStorage.getItem('sb-access-token')
-      if (!sessionToken) {
-        setAcceptInvitationStatus('error')
-        setAcceptInvitationMessage('Not authenticated. Please sign in again.')
-        return
-      }
-
-      const response = await fetch('/api/invite/accept', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionToken}`,
-        },
-        body: JSON.stringify({ token: (acceptingInvitation as any).token }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        setAcceptInvitationStatus('error')
-        setAcceptInvitationMessage(data.error || `Failed to accept invitation (${response.status})`)
-        return
-      }
-
-      if (data.success) {
-        setAcceptInvitationStatus('success')
-        setAcceptInvitationMessage('Invitation accepted successfully!')
-        
-        // Refresh user to get updated company info
-        await refreshUser()
-        
-        // Refresh company data and pending invitations
-        await fetchCompanyData()
-        await fetchMyPendingInvitations()
-        
-        // Close modal after a short delay
-        setTimeout(() => {
-          setAcceptingInvitation(null)
-          setAcceptInvitationStatus('idle')
-          setAcceptInvitationMessage('')
-        }, 2000)
-      } else {
-        setAcceptInvitationStatus('error')
-        setAcceptInvitationMessage(data.error || 'Failed to accept invitation')
-      }
-    } catch (error) {
-      setAcceptInvitationStatus('error')
-      setAcceptInvitationMessage('An error occurred while accepting the invitation')
-    } finally {
-      setIsAcceptingInvitation(false)
-    }
-  }
-
-  const fetchCompanyData = async () => {
+  const fetchCompanyData = useCallback(async () => {
     if (!user) {
       setIsLoading(false)
       return
     }
 
     try {
-      const sessionToken = localStorage.getItem('sb-access-token')
+      const sessionToken = getSessionToken()
       if (!sessionToken) {
         setIsLoading(false)
         return
@@ -221,6 +155,82 @@ export default function CompanyPage() {
     } finally {
       setIsLoading(false)
     }
+  }, [user])
+
+  useEffect(() => {
+    if (!user) {
+      setIsLoading(false)
+      return
+    }
+
+    // Fetch both in parallel for better performance
+    Promise.all([
+      fetchCompanyData(),
+      fetchMyPendingInvitations()
+    ]).catch(error => {
+      console.error('Error fetching company data:', error)
+    })
+  }, [user, fetchCompanyData, fetchMyPendingInvitations])
+
+  const handleAcceptInvitation = async () => {
+    if (!acceptingInvitation || !(acceptingInvitation as any).token) return
+
+    setIsAcceptingInvitation(true)
+    setAcceptInvitationStatus('idle')
+    setAcceptInvitationMessage('')
+
+    try {
+      const sessionToken = getSessionToken()
+      if (!sessionToken) {
+        setAcceptInvitationStatus('error')
+        setAcceptInvitationMessage('Not authenticated. Please sign in again.')
+        return
+      }
+
+      const response = await fetch('/api/invite/accept', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ token: (acceptingInvitation as any).token }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setAcceptInvitationStatus('error')
+        setAcceptInvitationMessage(data.error || `Failed to accept invitation (${response.status})`)
+        return
+      }
+
+      if (data.success) {
+        setAcceptInvitationStatus('success')
+        setAcceptInvitationMessage('Invitation accepted successfully!')
+        
+        // Refresh user, company data, and pending invitations in parallel
+        await Promise.all([
+          refreshUser(),
+          fetchCompanyData(),
+          fetchMyPendingInvitations()
+        ])
+        
+        // Close modal after a short delay
+        setTimeout(() => {
+          setAcceptingInvitation(null)
+          setAcceptInvitationStatus('idle')
+          setAcceptInvitationMessage('')
+        }, 2000)
+      } else {
+        setAcceptInvitationStatus('error')
+        setAcceptInvitationMessage(data.error || 'Failed to accept invitation')
+      }
+    } catch (error) {
+      setAcceptInvitationStatus('error')
+      setAcceptInvitationMessage('An error occurred while accepting the invitation')
+    } finally {
+      setIsAcceptingInvitation(false)
+    }
   }
 
   const handleCreateCompany = async () => {
@@ -228,7 +238,7 @@ export default function CompanyPage() {
 
     setIsCreating(true)
     try {
-      const sessionToken = localStorage.getItem('sb-access-token')
+      const sessionToken = getSessionToken()
       if (!sessionToken) {
         alert('Not authenticated. Please sign in again.')
         return
@@ -288,7 +298,7 @@ export default function CompanyPage() {
 
     setIsInviting(true)
     try {
-      const sessionToken = localStorage.getItem('sb-access-token')
+      const sessionToken = getSessionToken()
       if (!sessionToken) {
         alert('Not authenticated')
         return
@@ -344,7 +354,7 @@ export default function CompanyPage() {
     if (!editingMember) return
 
     try {
-      const sessionToken = localStorage.getItem('sb-access-token')
+      const sessionToken = getSessionToken()
       if (!sessionToken) {
         alert('Not authenticated. Please sign in again.')
         return
@@ -409,7 +419,7 @@ export default function CompanyPage() {
     }
 
     try {
-      const sessionToken = localStorage.getItem('sb-access-token')
+      const sessionToken = getSessionToken()
       if (!sessionToken) {
         alert('Not authenticated. Please sign in again.')
         return
@@ -441,7 +451,7 @@ export default function CompanyPage() {
   const handleDeleteCompany = async () => {
     setIsDeleting(true)
     try {
-      const sessionToken = localStorage.getItem('sb-access-token')
+      const sessionToken = getSessionToken()
       if (!sessionToken) {
         alert('Not authenticated. Please sign in again.')
         return
@@ -494,7 +504,7 @@ export default function CompanyPage() {
 
     setIsUpdatingCompanyName(true)
     try {
-      const sessionToken = localStorage.getItem('sb-access-token')
+      const sessionToken = getSessionToken()
       if (!sessionToken) {
         alert('Not authenticated. Please sign in again.')
         return
@@ -557,7 +567,7 @@ export default function CompanyPage() {
 
     setIsUpdatingWebsite(true)
     try {
-      const sessionToken = localStorage.getItem('sb-access-token')
+      const sessionToken = getSessionToken()
       if (!sessionToken) {
         alert('Not authenticated. Please sign in again.')
         return
@@ -659,7 +669,7 @@ export default function CompanyPage() {
     setLogoError(null)
 
     try {
-      const sessionToken = localStorage.getItem('sb-access-token')
+      const sessionToken = getSessionToken()
       if (!sessionToken) {
         setLogoError('Not authenticated')
         return
@@ -704,7 +714,7 @@ export default function CompanyPage() {
     setLogoError(null)
 
     try {
-      const sessionToken = localStorage.getItem('sb-access-token')
+      const sessionToken = getSessionToken()
       if (!sessionToken) {
         setLogoError('Not authenticated')
         return
